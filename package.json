@@ -1,0 +1,24 @@
+{
+  "name": "gmermaid",
+  "version": "0.6.0",
+  "description": "Standalone SVG Mermaid renderer — zero external dependencies",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./plugins/jivedoc": "./src/plugins/jivedoc.js",
+    "./plugins/web-component": "./src/plugins/web-component.js",
+    "./themes/*": "./themes/*",
+    "./dist/*": "./dist/*"
+  },
+  "scripts": {
+    "build": "node build.js",
+    "build:watch": "node build.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  },
+  "keywords": ["mermaid", "diagram", "svg", "flowchart", "erd"],
+  "license": "MIT"
+}

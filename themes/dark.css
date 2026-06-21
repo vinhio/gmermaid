@@ -1,0 +1,497 @@
+.gm-container {
+  /* ── Canvas ── */
+  --gm-bg:            #0d1117;
+  --gm-grid:          #1c2128;
+  --gm-panel:         #161b22;
+  --gm-panel-border:  #30363d;
+  --gm-header:        #1b2029;
+
+  /* ── Text ── */
+  --gm-text:          #e6edf3;
+  --gm-muted:         #8b949e;
+
+  /* ── Accent ── */
+  --gm-accent:        #3fb950;
+  --gm-accent-dim:    #238636;
+  --gm-selected:      #c6f24e;
+
+  /* ── Edges ── */
+  --gm-edge:          #3c4655;
+  --gm-edge-hi:       #3fb950;
+
+  /* ── Nodes ── */
+  --gm-node-fill:     #161b22;
+  --gm-node-stroke:   #30363d;
+  --gm-node-stroke-w: 1.5px;
+  --gm-node-radius:   8px;
+  --gm-node-text:     #e6edf3;
+
+  /* ── ERD keys ── */
+  --gm-pk:            #f2c14e;
+  --gm-fk:            #5cc8ff;
+
+  /* ── Typography ── */
+  --gm-font:          'JetBrains Mono', ui-monospace, monospace;
+  --gm-font-size:     12px;
+  --gm-label-font:    'Sora', system-ui, sans-serif;
+}
+
+/* ── Container ── */
+.gm-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--gm-bg);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Stage ── */
+.gm-stage {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+.gm-stage.gm-panning { cursor: grabbing; }
+
+/* ── Flowchart nodes ── */
+.gm-node          { cursor: move; }
+.gm-node-shape    { transition: stroke .12s, fill .12s; }
+.gm-node.gm-dragging .gm-node-shape { stroke: var(--gm-accent) !important; }
+.gm-node-text {
+  fill: var(--gm-node-text);
+  font-family: var(--gm-label-font);
+  font-size: var(--gm-font-size);
+  pointer-events: none;
+}
+
+/* ── Edges ── */
+.gm-edge {
+  stroke: var(--gm-edge);
+  stroke-width: 1.5px;
+  fill: none;
+  transition: stroke .12s;
+}
+.gm-edge-group:hover .gm-edge { stroke: var(--gm-edge-hi); }
+.gm-edge-label {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+/* ── ERD tables ── */
+.gm-erd-table     { cursor: move; }
+.gm-erd-bg {
+  fill: var(--gm-panel);
+  stroke: var(--gm-panel-border);
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,.4));
+  transition: stroke .12s;
+}
+.gm-erd-table.gm-dragging .gm-erd-bg { stroke: var(--gm-accent); }
+.gm-erd-header  { fill: var(--gm-header); }
+.gm-erd-title {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-weight: 700;
+  font-size: 13px;
+  pointer-events: none;
+}
+.gm-erd-tag {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-erd-col-name {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 12px;
+  pointer-events: none;
+}
+.gm-erd-col-type {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  pointer-events: none;
+}
+.gm-erd-row.is-key .gm-erd-col-name { font-weight: 500; }
+.gm-erd-sep {
+  stroke: var(--gm-panel-border);
+  stroke-width: 1px;
+  opacity: .5;
+}
+.gm-key-pk { fill: var(--gm-pk); }
+.gm-key-fk { fill: var(--gm-fk); }
+.gm-edge-marker {
+  stroke: var(--gm-edge);
+  stroke-width: 2px;
+  fill: none;
+  transition: stroke .12s;
+}
+
+/* ── Sequence Diagram ── */
+.gm-seq-lifeline {
+  stroke: var(--gm-muted);
+  stroke-width: 1.5px;
+  stroke-dasharray: 6,4;
+}
+.gm-seq-participant rect {
+  fill: var(--gm-panel);
+  stroke: var(--gm-panel-border);
+  stroke-width: 1.5px;
+}
+.gm-seq-message line, .gm-seq-message path {
+  stroke: var(--gm-edge);
+  stroke-width: 1.5px;
+}
+
+/* ── Class Diagram ── */
+.gm-class-node { cursor: move; }
+.gm-class-bg {
+  fill: var(--gm-panel);
+  stroke: var(--gm-panel-border);
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,.35));
+}
+.gm-class-node.gm-dragging .gm-class-bg { stroke: var(--gm-accent); }
+.gm-class-header { fill: var(--gm-header); }
+.gm-class-sep {
+  stroke: var(--gm-panel-border);
+  stroke-width: 1px;
+}
+.gm-class-name {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.gm-class-stereo {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  font-style: italic;
+  pointer-events: none;
+}
+.gm-class-attr {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  pointer-events: none;
+}
+.gm-class-method {
+  fill: var(--gm-accent2, #58a6ff);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  pointer-events: none;
+}
+.gm-class-mult {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-class-edge-path {
+  stroke: var(--gm-edge);
+  stroke-width: 1.5px;
+  fill: none;
+  transition: stroke .12s;
+}
+
+/* ── State Diagram ── */
+.gm-state-node { cursor: move; }
+.gm-state-bg {
+  fill: var(--gm-node-fill);
+  stroke: var(--gm-node-stroke);
+  stroke-width: 1.5px;
+  transition: stroke .12s;
+}
+.gm-state-node.gm-dragging .gm-state-bg { stroke: var(--gm-accent); }
+.gm-state-label {
+  fill: var(--gm-node-text);
+  font-family: var(--gm-label-font);
+  font-size: 12px;
+  pointer-events: none;
+}
+.gm-state-initial {
+  fill: var(--gm-text);
+}
+.gm-state-final-ring {
+  fill: none;
+  stroke: var(--gm-text);
+  stroke-width: 2px;
+}
+.gm-state-final-dot {
+  fill: var(--gm-text);
+}
+.gm-state-fork {
+  fill: var(--gm-text);
+}
+.gm-state-choice {
+  fill: var(--gm-node-fill);
+  stroke: var(--gm-node-stroke);
+  stroke-width: 1.5px;
+}
+.gm-state-composite-bg {
+  fill: rgba(88,166,255,.05);
+  stroke: var(--gm-accent2, #58a6ff);
+  stroke-width: 1.5px;
+  stroke-dasharray: 6,3;
+}
+
+/* ── Pie Chart ── */
+.gm-pie-title {
+  fill: var(--gm-text);
+  font-family: var(--gm-label-font);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-pie-pct {
+  fill: var(--gm-bg);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-pie-legend-text {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* ── Gantt Chart ── */
+.gm-gantt-title {
+  fill: var(--gm-text);
+  font-family: var(--gm-label-font);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-gantt-axis-label {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-gantt-section {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 12px;
+  pointer-events: none;
+}
+.gm-gantt-bar-label {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+/* ── Git Graph ── */
+.gm-git-branch-label {
+  font-family: var(--gm-font);
+  font-size: 11px;
+  pointer-events: none;
+}
+.gm-git-label {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-git-tag {
+  font-family: var(--gm-font);
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* ── Mindmap ── */
+.gm-mm-node { cursor: move; }
+.gm-mm-node.gm-dragging .gm-mm-shape { stroke: var(--gm-accent) !important; opacity: 0.85; }
+.gm-mm-edge {
+  fill: none;
+  stroke: var(--gm-edge);
+  stroke-width: 1.5px;
+}
+.gm-mm-shape {
+  transition: opacity .12s;
+}
+.gm-mm-label {
+  pointer-events: none;
+}
+
+/* ── Timeline ── */
+.gm-timeline-title {
+  fill: var(--gm-text);
+  font-family: var(--gm-label-font);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-timeline-period {
+  font-family: var(--gm-font);
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-timeline-event {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  pointer-events: none;
+}
+.gm-timeline-section {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+/* ── Journey ── */
+.gm-journey-title {
+  fill: var(--gm-text);
+  font-family: var(--gm-label-font);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-journey-section {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-journey-task {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-journey-score {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.gm-journey-actor {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+/* ── C4 ── */
+.gm-c4-title {
+  fill: var(--gm-text);
+  font-family: var(--gm-label-font);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-c4-kind {
+  fill: rgba(255,255,255,.55);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  font-style: italic;
+  pointer-events: none;
+}
+.gm-c4-label {
+  fill: #fff;
+  font-family: var(--gm-label-font);
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-c4-tech {
+  fill: rgba(255,255,255,.7);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  font-style: italic;
+  pointer-events: none;
+}
+.gm-c4-desc {
+  fill: rgba(255,255,255,.65);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-c4-rel-label {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-c4-box {
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,.35));
+}
+
+/* ── Quadrant Chart ── */
+.gm-quadrant-title {
+  fill: var(--gm-text);
+  font-family: var(--gm-label-font);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.gm-quadrant-qlabel {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 11px;
+  pointer-events: none;
+  opacity: .7;
+}
+.gm-quadrant-axis-label {
+  fill: var(--gm-muted);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-quadrant-point-label {
+  fill: var(--gm-text);
+  font-family: var(--gm-font);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+/* ── Requirement Diagram ── */
+.gm-req-kind, .gm-req-name, .gm-req-text, .gm-req-rel-label { pointer-events: none; }
+.gm-req-rel { transition: stroke .12s; }
+.gm-req-rel-label { fill: var(--gm-muted); font-family: var(--gm-font); font-size: 10px; }
+
+/* ── Sankey ── */
+.gm-sankey-flow { transition: opacity .12s; }
+.gm-sankey-flow:hover { opacity: .7 !important; }
+.gm-sankey-label { fill: var(--gm-text); font-family: var(--gm-font); font-size: 11px; pointer-events: none; }
+
+/* ── XY Chart ── */
+.gm-xy-title { fill: var(--gm-text); font-family: var(--gm-label-font); font-size: 14px; font-weight: 600; pointer-events: none; }
+.gm-xy-tick  { fill: var(--gm-muted); font-family: var(--gm-font); font-size: 10px; pointer-events: none; }
+.gm-xy-axis-label { fill: var(--gm-muted); font-family: var(--gm-font); font-size: 11px; pointer-events: none; }
+.gm-xy-bar   { transition: opacity .12s; }
+.gm-xy-bar:hover { opacity: .8; }
+.gm-xy-line  { stroke-linecap: round; }
+.gm-xy-dot   { transition: r .12s; }
+
+/* ── Architecture Diagram ── */
+.gm-arch-group { }
+.gm-arch-group-label { pointer-events: none; }
+
+/* ── Kanban ── */
+.gm-kanban-col-label, .gm-kanban-card-label, .gm-kanban-ticket { pointer-events: none; }
+.gm-kanban-card { transition: stroke .12s; }
+.gm-kanban-card:hover { stroke: var(--gm-accent) !important; }
+
+/* ── Packet Diagram ── */
+.gm-packet-bit   { fill: var(--gm-muted); font-family: var(--gm-font); font-size: 9px; pointer-events: none; }
+.gm-packet-label { font-family: var(--gm-font); font-size: 10px; font-weight: 500; pointer-events: none; }
+.gm-packet-field { transition: opacity .12s; }
+.gm-packet-field:hover { opacity: 1 !important; }

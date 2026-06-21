@@ -1,0 +1,473 @@
+<!doctype html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gMermaid — All Diagrams Gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../themes/dark.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; background: #0d1117; color: #e6edf3; font-family: 'Sora', sans-serif; }
+
+  .page-header {
+    padding: 24px 32px 16px;
+    border-bottom: 1px solid #30363d;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .page-header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; font-weight: 700; color: #3fb950;
+  }
+  .page-header .subtitle {
+    font-size: 13px; color: #8b949e;
+  }
+  .ver { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8b949e;
+    background: #1c2128; padding: 2px 6px; border-radius: 4px; }
+
+  .keyboard-hint {
+    margin-left: auto; font-size: 11px; color: #8b949e;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+    gap: 24px;
+    padding: 24px 32px;
+  }
+
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid #30363d;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 700; color: #e6edf3;
+  }
+  .card-keyword {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #8b949e;
+    background: #1c2128; padding: 1px 6px; border-radius: 4px;
+  }
+  .card-badge {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    padding: 2px 6px; border-radius: 3px;
+    background: rgba(63,185,80,.12); color: #3fb950; border: 1px solid #238636;
+  }
+  .card-badge.p2 { background: rgba(88,166,255,.12); color: #58a6ff; border-color: #1f6feb; }
+  .card-badge.p3 { background: rgba(248,166,66,.12); color: #f8a642; border-color: #9e6a03; }
+
+  .diagram-frame {
+    height: 320px;
+    position: relative;
+  }
+  .diagram-container {
+    width: 100%; height: 100%;
+  }
+
+  .card-footer {
+    padding: 7px 14px;
+    border-top: 1px solid #30363d;
+    display: flex; gap: 6px; align-items: center;
+  }
+  .mini-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    background: #1c2128; color: #8b949e; border: 1px solid #30363d;
+    border-radius: 4px; padding: 3px 8px; cursor: pointer; transition: .15s;
+  }
+  .mini-btn:hover { border-color: #3fb950; color: #3fb950; }
+  .card-info { margin-left: auto; font-size: 10px; color: #8b949e; }
+
+  /* Shared diagram CSS */
+  .gm-quadrant-title    { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; pointer-events: none; }
+  .gm-quadrant-qlabel   { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; opacity: .7; }
+  .gm-quadrant-axis-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; }
+  .gm-quadrant-point-label { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 9px; pointer-events: none; }
+  .gm-req-rel-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-sankey-label { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 10px; pointer-events: none; }
+  .gm-sankey-flow { transition: opacity .12s; }
+  .gm-xy-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; pointer-events: none; }
+  .gm-xy-tick  { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; }
+  .gm-xy-axis-label { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 10px; pointer-events: none; }
+  .gm-xy-bar { transition: opacity .12s; }
+  .gm-arch-group-label { pointer-events: none; fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 10px; }
+  .gm-kanban-col-label  { pointer-events: none; }
+  .gm-kanban-card-label { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 10px; pointer-events: none; }
+  .gm-kanban-ticket     { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 8px; pointer-events: none; }
+  .gm-kanban-card { transition: stroke .12s; }
+  .gm-packet-bit   { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 8px; pointer-events: none; }
+  .gm-packet-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 500; pointer-events: none; }
+  .gm-pie-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; pointer-events: none; }
+  .gm-pie-pct   { fill: #0d1117; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; pointer-events: none; }
+  .gm-pie-legend-text { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 11px; pointer-events: none; }
+  .gm-gantt-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; pointer-events: none; }
+  .gm-gantt-axis-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; }
+  .gm-gantt-section { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 11px; pointer-events: none; }
+  .gm-gantt-bar-label { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 10px; pointer-events: none; }
+  .gm-git-branch-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-git-label  { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; }
+  .gm-mm-node { cursor: move; }
+  .gm-mm-edge { fill: none; stroke-width: 1.5px; }
+  .gm-mm-label { pointer-events: none; }
+  .gm-timeline-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; pointer-events: none; }
+  .gm-timeline-period { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; pointer-events: none; }
+  .gm-timeline-event  { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 10px; pointer-events: none; }
+  .gm-journey-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; pointer-events: none; }
+  .gm-journey-section { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 10px; font-weight: 600; pointer-events: none; }
+  .gm-journey-task  { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 9px; pointer-events: none; }
+  .gm-journey-score { fill: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; pointer-events: none; }
+  .gm-journey-actor { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 8px; pointer-events: none; }
+  .gm-c4-title  { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; pointer-events: none; }
+  .gm-c4-kind   { fill: rgba(255,255,255,.55); font-family: 'JetBrains Mono', monospace; font-size: 9px; font-style: italic; pointer-events: none; }
+  .gm-c4-label  { fill: #fff; font-family: 'Sora', sans-serif; font-size: 11px; font-weight: 600; pointer-events: none; }
+  .gm-c4-tech   { fill: rgba(255,255,255,.7); font-family: 'JetBrains Mono', monospace; font-size: 9px; font-style: italic; pointer-events: none; }
+  .gm-c4-desc   { fill: rgba(255,255,255,.65); font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; }
+  .gm-c4-rel-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; }
+  .gm-c4-box    { filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); }
+  .gm-class-bg  { fill: #161b22; stroke: #30363d; stroke-width: 1.5px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); }
+  .gm-class-header { fill: #1b2029; }
+  .gm-class-name   { fill: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; pointer-events: none; }
+  .gm-class-stereo { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-style: italic; pointer-events: none; }
+  .gm-class-attr   { fill: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-class-method { fill: #58a6ff; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-class-sep    { stroke: #30363d; stroke-width: 1px; }
+  .gm-class-node { cursor: move; }
+  .gm-state-bg { fill: #161b22; stroke: #30363d; stroke-width: 1.5px; transition: stroke .12s; }
+  .gm-state-label { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 11px; pointer-events: none; }
+  .gm-seq-lifeline { stroke: #8b949e; stroke-width: 1.5px; stroke-dasharray: 6,4; }
+  .gm-seq-participant rect { fill: #161b22; stroke: #30363d; stroke-width: 1.5px; }
+  .gm-seq-message line, .gm-seq-message path { stroke: #3c4655; stroke-width: 1.5px; }
+</style>
+</head>
+<body>
+<div class="page-header">
+  <h1>gMermaid</h1>
+  <span class="ver">v0.6.0</span>
+  <span class="subtitle">All Diagrams Gallery — 20 types</span>
+  <span class="keyboard-hint">Arrow keys: pan · +/−: zoom · F: fit · Drag: move nodes</span>
+</div>
+
+<div class="gallery" id="gallery"></div>
+
+<script type="module">
+import { GMermaid } from '../src/index.js';
+
+const DIAGRAMS = [
+  {
+    name: 'Flowchart', keyword: 'flowchart LR', phase: 'p1',
+    source: `flowchart LR
+  A[Start] --> B{Is valid?}
+  B -->|Yes| C[Process]
+  B -->|No|  D[Error]
+  C --> E((Done))
+  D --> A`,
+  },
+  {
+    name: 'Sequence', keyword: 'sequenceDiagram', phase: 'p1',
+    source: `sequenceDiagram
+  participant C as Client
+  participant S as Server
+  C->>S: POST /login
+  S-->>C: 200 OK + JWT
+  loop Every 15min
+    C->>S: GET /refresh
+    S-->>C: new token
+  end`,
+  },
+  {
+    name: 'Class', keyword: 'classDiagram', phase: 'p1',
+    source: `classDiagram
+  class Animal { <<abstract>> +String name +eat() }
+  class Dog { +String breed +bark() }
+  class Cat { +bool indoor +purr() }
+  Animal <|-- Dog
+  Animal <|-- Cat`,
+  },
+  {
+    name: 'State', keyword: 'stateDiagram-v2', phase: 'p1',
+    source: `stateDiagram-v2
+  [*] --> Idle
+  Idle --> Loading : submit
+  Loading --> Success : ok
+  Loading --> Error : fail
+  Success --> [*]
+  Error --> Idle : retry`,
+  },
+  {
+    name: 'ERD', keyword: 'erDiagram', phase: 'p1',
+    source: `erDiagram
+  USER { bigint id PK; varchar name; varchar email }
+  POST { bigint id PK; bigint user_id FK; text body }
+  COMMENT { bigint id PK; bigint post_id FK; text content }
+  USER ||--o{ POST : writes
+  POST ||--o{ COMMENT : has`,
+  },
+  {
+    name: 'Pie Chart', keyword: 'pie', phase: 'p2',
+    source: `pie title Browser Market Share
+  "Chrome" : 66
+  "Safari" : 20
+  "Firefox" : 4
+  "Edge" : 4
+  "Other" : 6`,
+  },
+  {
+    name: 'Gantt', keyword: 'gantt', phase: 'p2',
+    source: `gantt
+  title Sprint Plan
+  dateFormat YYYY-MM-DD
+  section Backend
+    Auth API : done, 2025-01-01, 5d
+    DB Schema : done, after, 3d
+    REST endpoints : active, after, 7d
+  section Frontend
+    UI components : after, 5d
+    Integration : after, 4d`,
+  },
+  {
+    name: 'Git Graph', keyword: 'gitGraph', phase: 'p2',
+    source: `gitGraph
+  commit id:"Init"
+  branch feature
+  checkout feature
+  commit id:"Feat1"
+  commit id:"Feat2"
+  checkout main
+  merge feature id:"Merge" tag:"v1.0"
+  commit id:"Hotfix"`,
+  },
+  {
+    name: 'Mindmap', keyword: 'mindmap', phase: 'p2',
+    source: `mindmap
+  root((gMermaid))
+    P1
+      Flowchart
+      ERD
+    P2
+      Pie
+      Gantt
+      Git
+    P3
+      Sankey
+      XY Chart`,
+  },
+  {
+    name: 'Timeline', keyword: 'timeline', phase: 'p2',
+    source: `timeline
+  title gMermaid Releases
+  section Alpha
+    2024 : v0.1 Core
+         : v0.2 ERD
+  section Beta
+    2025 : v0.3 Class
+         : v0.4 Charts`,
+  },
+  {
+    name: 'Journey', keyword: 'journey', phase: 'p2',
+    source: `journey
+  title Deployment Flow
+  section Dev
+    Write code: 5: Dev
+    Write tests: 4: Dev
+  section CI
+    Run tests: 5: CI
+    Build: 5: CI
+  section Deploy
+    Staging: 4: DevOps
+    Production: 5: DevOps`,
+  },
+  {
+    name: 'C4 Context', keyword: 'C4Context', phase: 'p2',
+    source: `C4Context
+  title SaaS Platform
+  Person(user, "User", "End user")
+  System(app, "Application", "Core platform")
+  System_Ext(auth, "Auth0", "Identity provider")
+  System_Ext(stripe, "Stripe", "Payments")
+  Rel(user, app, "Uses")
+  Rel(app, auth, "Authenticates via")
+  Rel(app, stripe, "Charges via")`,
+  },
+  {
+    name: 'Block', keyword: 'block-beta', phase: 'p3',
+    source: `block-beta
+  columns 3
+  A["Load Balancer"] space B["API Gateway"]
+  C["Auth"] D["Users"] E["Orders"]
+  A --> B
+  B --> C
+  B --> D
+  B --> E`,
+  },
+  {
+    name: 'Quadrant', keyword: 'quadrantChart', phase: 'p3',
+    source: `quadrantChart
+  title Tech Priorities
+  x-axis Low Effort --> High Effort
+  y-axis Low Impact --> High Impact
+  quadrant-1 Invest
+  quadrant-2 Quick wins
+  quadrant-3 Defer
+  quadrant-4 Evaluate
+  TypeScript: [0.4, 0.9]
+  Docker: [0.5, 0.75]
+  GraphQL: [0.65, 0.5]
+  Redis: [0.4, 0.6]`,
+  },
+  {
+    name: 'Requirement', keyword: 'requirementDiagram', phase: 'p3',
+    source: `requirementDiagram
+  requirement auth_req {
+    id: 1
+    text: JWT authentication required
+    risk: high
+    verifymethod: test
+  }
+  requirement perf_req {
+    id: 2
+    text: p99 under 200ms
+    risk: medium
+    verifymethod: performance
+  }
+  element api {
+    type: microservice
+  }
+  api - satisfies -> auth_req
+  api - satisfies -> perf_req`,
+  },
+  {
+    name: 'Sankey', keyword: 'sankey-beta', phase: 'p3',
+    source: `sankey-beta
+  Solar,Electricity,120
+  Wind,Electricity,85
+  Hydro,Electricity,45
+  Electricity,Industry,110
+  Electricity,Homes,80
+  Electricity,Transport,60`,
+  },
+  {
+    name: 'XY Chart', keyword: 'xychart-beta', phase: 'p3',
+    source: `xychart-beta
+  title "Monthly Revenue"
+  x-axis [Q1, Q2, Q3, Q4]
+  y-axis "Revenue ($k)" 0 --> 100
+  bar [42, 61, 78, 95]
+  line [40, 58, 75, 92]`,
+  },
+  {
+    name: 'Architecture', keyword: 'architecture-beta', phase: 'p3',
+    source: `architecture-beta
+  service lb(internet)[LB]
+  service api(server)[API]
+  service db(database)[PostgreSQL]
+  service cache(server)[Redis]
+  lb:R -- L:api
+  api:R -- L:db
+  api:B -- T:cache`,
+  },
+  {
+    name: 'Kanban', keyword: 'kanban', phase: 'p3',
+    source: `kanban
+  Backlog
+    t1[OAuth Login]@{ ticket: JIRA-1, priority: High }
+    t2[Dashboard]@{ ticket: JIRA-2 }
+  "In Progress"
+    t3[API Rate Limit]@{ ticket: JIRA-3, priority: Very High }
+  Done
+    t4[Dark Mode]@{ ticket: JIRA-4 }`,
+  },
+  {
+    name: 'Packet', keyword: 'packet-beta', phase: 'p3',
+    source: `packet-beta
+  0-15: "Source Port"
+  16-31: "Destination Port"
+  32-63: "Sequence Number"
+  64-95: "Acknowledgment Number"
+  96-99: "Data Offset"
+  100-111: "Flags"
+  112-127: "Window Size"
+  128-143: "Checksum"`,
+  },
+];
+
+const gallery = document.getElementById('gallery');
+const instances = [];
+
+const PHASE_LABELS = { p1: 'Phase 1-3', p2: 'Phase 5', p3: 'Phase 6' };
+
+for (const def of DIAGRAMS) {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const header = document.createElement('div');
+  header.className = 'card-header';
+  header.innerHTML = `
+    <span class="card-name">${def.name}</span>
+    <span class="card-keyword">${def.keyword}</span>
+    <span class="card-badge ${def.phase}">${PHASE_LABELS[def.phase]}</span>
+  `;
+
+  const frame = document.createElement('div');
+  frame.className = 'diagram-frame';
+  const cont = document.createElement('div');
+  cont.className = 'diagram-container gm-container';
+  frame.appendChild(cont);
+
+  const footer = document.createElement('div');
+  footer.className = 'card-footer';
+  footer.innerHTML = `
+    <button class="mini-btn" data-action="fit">⤢ Fit</button>
+    <button class="mini-btn" data-action="zoomIn">+</button>
+    <button class="mini-btn" data-action="zoomOut">−</button>
+    <button class="mini-btn" data-action="svg">↧ SVG</button>
+    <span class="card-info">${def.name}</span>
+  `;
+
+  card.appendChild(header);
+  card.appendChild(frame);
+  card.appendChild(footer);
+  gallery.appendChild(card);
+
+  // Render diagram
+  try {
+    const d = GMermaid.create(cont, {
+      source: def.source,
+      theme: 'dark',
+      keyboard: false,
+      ariaLabel: def.name,
+    });
+    instances.push({ d, cont, def });
+
+    // Footer controls
+    footer.addEventListener('click', e => {
+      const action = e.target.closest('[data-action]')?.dataset.action;
+      if (!action) return;
+      if (action === 'fit')    d.fitToContent();
+      if (action === 'zoomIn') d.zoomIn();
+      if (action === 'zoomOut') d.zoomOut();
+      if (action === 'svg') {
+        const svg = d.exportSVG();
+        const a   = document.createElement('a');
+        a.href    = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+        a.download = `${def.name.toLowerCase().replace(/\s+/g, '-')}.svg`;
+        a.click();
+      }
+    });
+  } catch (err) {
+    cont.innerHTML = `<div style="padding:16px;color:#f85149;font-family:monospace;font-size:11px">${err.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+/* gMermaid — Light theme
+   Usage: <link rel="stylesheet" href="gmermaid/themes/light.css">
+   or: GMermaid.create(el, { theme: 'light' })
+*/
+.gm-container {
+  /* ── Canvas ── */
+  --gm-bg:            #ffffff;
+  --gm-grid:          #f0f0f0;
+  --gm-panel:         #f8f9fa;
+  --gm-panel-border:  #d0d7de;
+  --gm-header:        #f0f3f5;
+
+  /* ── Text ── */
+  --gm-text:          #1f2328;
+  --gm-muted:         #656d76;
+
+  /* ── Accent ── */
+  --gm-accent:        #1a7f37;
+  --gm-accent-dim:    #2da44e;
+  --gm-selected:      #0969da;
+
+  /* ── Edges ── */
+  --gm-edge:          #8c959f;
+  --gm-edge-hi:       #1a7f37;
+
+  /* ── Nodes ── */
+  --gm-node-fill:     #ffffff;
+  --gm-node-stroke:   #d0d7de;
+  --gm-node-stroke-w: 1.5px;
+  --gm-node-radius:   8px;
+  --gm-node-text:     #1f2328;
+
+  /* ── ERD keys ── */
+  --gm-pk:            #9a6700;
+  --gm-fk:            #0969da;
+
+  /* ── Typography ── */
+  --gm-font:          'JetBrains Mono', ui-monospace, monospace;
+  --gm-font-size:     12px;
+  --gm-label-font:    'Sora', system-ui, sans-serif;
+}

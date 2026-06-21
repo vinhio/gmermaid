@@ -1,0 +1,41 @@
+/* gMermaid — GitHub theme (Primer design tokens)
+   Usage: <link rel="stylesheet" href="gmermaid/themes/github.css">
+   or: GMermaid.create(el, { theme: 'github' })
+*/
+.gm-container {
+  /* ── Canvas ── */
+  --gm-bg:            #ffffff;
+  --gm-grid:          #eaeef2;
+  --gm-panel:         #f6f8fa;
+  --gm-panel-border:  #d0d7de;
+  --gm-header:        #eaeef2;
+
+  /* ── Text ── */
+  --gm-text:          #1f2328;
+  --gm-muted:         #636c76;
+
+  /* ── Accent (GitHub blue) ── */
+  --gm-accent:        #0969da;
+  --gm-accent-dim:    #0550ae;
+  --gm-selected:      #ddf4ff;
+
+  /* ── Edges ── */
+  --gm-edge:          #afb8c1;
+  --gm-edge-hi:       #0969da;
+
+  /* ── Nodes ── */
+  --gm-node-fill:     #f6f8fa;
+  --gm-node-stroke:   #d0d7de;
+  --gm-node-stroke-w: 1px;
+  --gm-node-radius:   6px;
+  --gm-node-text:     #1f2328;
+
+  /* ── ERD keys ── */
+  --gm-pk:            #8250df;
+  --gm-fk:            #0969da;
+
+  /* ── Typography ── */
+  --gm-font:          'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+  --gm-font-size:     12px;
+  --gm-label-font:    -apple-system, 'Segoe UI', system-ui, sans-serif;
+}

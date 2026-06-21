@@ -1,0 +1,386 @@
+<!doctype html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gMermaid — JiveDoc Plugin Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../themes/dark.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0d1117; color: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; }
+
+  /* ── Simulated JiveDoc editor shell ── */
+  .editor-shell {
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  .editor-topbar {
+    height: 48px; background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0;
+  }
+  .editor-logo  { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #3fb950; }
+  .editor-title { font-size: 13px; color: #8b949e; }
+  .topbar-space { flex: 1; }
+  .topbar-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e;
+    background: #1c2128; border: 1px solid #30363d; border-radius: 5px;
+    padding: 4px 10px; cursor: pointer; transition: .15s;
+  }
+  .topbar-btn:hover { border-color: #3fb950; color: #3fb950; }
+  .topbar-btn.active { background: rgba(63,185,80,.12); border-color: #3fb950; color: #3fb950; }
+
+  .editor-body {
+    flex: 1; overflow: auto;
+    display: flex; justify-content: center; padding: 40px 20px;
+  }
+  .doc-page {
+    width: 100%; max-width: 760px;
+  }
+
+  /* ── Document content ── */
+  .doc-heading {
+    font-size: 24px; font-weight: 700; color: #e6edf3; margin-bottom: 8px;
+    font-family: 'Sora', sans-serif; line-height: 1.3;
+  }
+  .doc-meta { font-size: 12px; color: #8b949e; margin-bottom: 24px; }
+  .doc-text  { color: #c9d1d9; line-height: 1.7; margin-bottom: 20px; }
+  .doc-h2    { font-size: 17px; font-weight: 600; color: #e6edf3; margin: 28px 0 12px; }
+
+  /* ── Diagram block (simulated JiveDoc block) ── */
+  .diagram-block {
+    border: 1px solid #30363d; border-radius: 8px; overflow: hidden;
+    margin: 20px 0; background: #0d1117;
+  }
+  .diagram-block-toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+    background: #161b22; border-bottom: 1px solid #30363d;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e;
+  }
+  .block-type-badge {
+    background: rgba(63,185,80,.12); border: 1px solid #238636; color: #3fb950;
+    border-radius: 4px; padding: 1px 7px; font-size: 10px;
+  }
+  .block-toolbar-space { flex: 1; }
+  .block-btn {
+    background: transparent; border: 1px solid #30363d; color: #8b949e;
+    border-radius: 4px; padding: 2px 7px; cursor: pointer; font-size: 10px;
+    font-family: 'JetBrains Mono', monospace; transition: .15s;
+  }
+  .block-btn:hover { border-color: #3fb950; color: #3fb950; }
+
+  .diagram-frame { height: 360px; position: relative; }
+  .diagram-container { width: 100%; height: 100%; }
+
+  /* ── Source editor panel (collapsible) ── */
+  .source-panel {
+    border-top: 1px solid #30363d;
+    background: #0d1117;
+    display: none;
+  }
+  .source-panel.open { display: block; }
+  .source-textarea {
+    width: 100%; min-height: 120px; resize: vertical;
+    background: transparent; border: none; outline: none;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: #e6edf3; padding: 10px 14px; line-height: 1.6;
+  }
+
+  /* ── State serialization panel ── */
+  .state-panel {
+    border: 1px solid #30363d; border-radius: 8px; margin-top: 28px; overflow: hidden;
+  }
+  .state-panel-header {
+    background: #161b22; border-bottom: 1px solid #30363d;
+    padding: 8px 14px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #8b949e; display: flex; align-items: center; gap: 8px;
+  }
+  .state-panel-header span { color: #3fb950; }
+  .state-json {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: #8b949e; padding: 12px 14px; line-height: 1.6;
+    white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow: auto;
+  }
+
+  /* ── Web Component demo ── */
+  .wc-demo { margin-top: 28px; }
+  g-diagram {
+    border: 1px solid #30363d; border-radius: 8px; overflow: hidden;
+    display: block;
+  }
+
+  /* ── Theme switcher ── */
+  .theme-row {
+    display: flex; gap: 8px; margin-bottom: 12px; align-items: center;
+    font-size: 12px; color: #8b949e;
+  }
+  .theme-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    background: #1c2128; color: #8b949e; border: 1px solid #30363d;
+    border-radius: 4px; padding: 3px 9px; cursor: pointer; transition: .15s;
+  }
+  .theme-btn:hover, .theme-btn.active { border-color: #3fb950; color: #3fb950; background: rgba(63,185,80,.08); }
+
+  /* Diagram CSS overrides for plugin context */
+  .gm-pie-title       { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; pointer-events: none; }
+  .gm-pie-pct         { fill: #0d1117; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; pointer-events: none; }
+  .gm-pie-legend-text { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 12px; pointer-events: none; }
+  .gm-gantt-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; pointer-events: none; }
+  .gm-gantt-axis-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-gantt-section { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 11px; pointer-events: none; }
+  .gm-gantt-bar-label { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 10px; pointer-events: none; }
+  .gm-c4-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; pointer-events: none; }
+  .gm-c4-kind  { fill: rgba(255,255,255,.55); font-family: 'JetBrains Mono', monospace; font-size: 10px; font-style: italic; pointer-events: none; }
+  .gm-c4-label { fill: #fff; font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 600; pointer-events: none; }
+  .gm-c4-tech  { fill: rgba(255,255,255,.7); font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-c4-desc  { fill: rgba(255,255,255,.65); font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-c4-rel-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-c4-box   { filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); }
+</style>
+</head>
+<body>
+
+<div class="editor-shell">
+  <div class="editor-topbar">
+    <span class="editor-logo">JiveDoc</span>
+    <span class="editor-title">Architecture Overview · Draft</span>
+    <div class="topbar-space"></div>
+    <button class="topbar-btn active" id="btnDark">Dark</button>
+    <button class="topbar-btn" id="btnLight">Light</button>
+    <button class="topbar-btn" id="btnGithub">GitHub</button>
+  </div>
+
+  <div class="editor-body">
+    <div class="doc-page">
+
+      <div class="doc-heading">System Architecture</div>
+      <div class="doc-meta">Last edited by Vinh · 2 minutes ago</div>
+
+      <p class="doc-text">
+        This document describes the high-level architecture of our backend services.
+        The diagram below is interactive — drag nodes to rearrange, scroll to zoom,
+        double-click a label to edit it.
+      </p>
+
+      <!-- ── Diagram block 1 (plugin API demo) ── -->
+      <div class="diagram-block">
+        <div class="diagram-block-toolbar">
+          <span class="block-type-badge">◇ diagram</span>
+          <span id="block1-type">flowchart</span>
+          <div class="block-toolbar-space"></div>
+          <button class="block-btn" id="btn1Fit">⤢ Fit</button>
+          <button class="block-btn" id="btn1Source">{ } Source</button>
+          <button class="block-btn" id="btn1Svg">↧ SVG</button>
+        </div>
+        <div class="diagram-frame">
+          <div class="diagram-container gm-container" id="diagram1"></div>
+        </div>
+        <div class="source-panel" id="source1">
+          <textarea class="source-textarea" id="editor1" spellcheck="false"></textarea>
+          <div style="padding:6px 14px;border-top:1px solid #30363d;display:flex;gap:6px">
+            <button class="block-btn" id="btn1Apply">▶ Apply</button>
+            <button class="block-btn" id="btn1Reset">↺ Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="doc-text">
+        The services communicate via REST and gRPC. The API Gateway handles authentication
+        and rate limiting before routing requests to downstream services.
+      </p>
+
+      <div class="doc-h2">Service Dependencies</div>
+
+      <!-- ── Diagram block 2 ── -->
+      <div class="diagram-block">
+        <div class="diagram-block-toolbar">
+          <span class="block-type-badge">◇ diagram</span>
+          <span>c4</span>
+          <div class="block-toolbar-space"></div>
+          <button class="block-btn" id="btn2Fit">⤢ Fit</button>
+          <button class="block-btn" id="btn2Source">{ } Source</button>
+        </div>
+        <div class="diagram-frame">
+          <div class="diagram-container gm-container" id="diagram2"></div>
+        </div>
+        <div class="source-panel" id="source2">
+          <textarea class="source-textarea" id="editor2" spellcheck="false"></textarea>
+          <div style="padding:6px 14px;border-top:1px solid #30363d;display:flex;gap:6px">
+            <button class="block-btn" id="btn2Apply">▶ Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Serialized state viewer ── -->
+      <div class="state-panel">
+        <div class="state-panel-header">
+          <span>serialize()</span>
+          <span style="color:#8b949e">— persisted block state (source + layout)</span>
+        </div>
+        <div class="state-json" id="stateJson">{}</div>
+      </div>
+
+      <!-- ── Web Component demo ── -->
+      <div class="doc-h2">Web Component — <code style="font-size:13px;color:#58a6ff">&lt;g-diagram&gt;</code></div>
+      <p class="doc-text">
+        The same engine exposed as a native Web Component. Drop it in any HTML page —
+        no framework required. Responds to attribute changes and is fully themeable.
+      </p>
+
+      <div class="theme-row">
+        Theme:
+        <button class="theme-btn active" data-wc-theme="dark">Dark</button>
+        <button class="theme-btn" data-wc-theme="light">Light</button>
+        <button class="theme-btn" data-wc-theme="github">GitHub</button>
+      </div>
+
+      <g-diagram id="wcDemo" theme="dark" height="280px">
+gantt
+  title Sprint 42 — Week 1
+  dateFormat YYYY-MM-DD
+  section Backend
+    Auth API : done, 2025-01-01, 3d
+    DB Schema : done, after, 2d
+    REST endpoints : active, after, 4d
+  section Frontend
+    UI components : after, 3d
+    Integration : after, 2d
+      </g-diagram>
+
+    </div><!-- /doc-page -->
+  </div><!-- /editor-body -->
+</div><!-- /editor-shell -->
+
+<script type="module">
+import { GMermaid }         from '../src/index.js';
+import { GDiagramElement }  from '../src/plugins/web-component.js';
+
+// ── Block data (simulates JiveDoc's persisted state) ──────────────────
+const blockData1 = {
+  source: `flowchart LR
+  Client --> LB[Load Balancer]
+  LB --> API[API Gateway]
+  API --> Auth[Auth Service]
+  API --> Users[User Service]
+  API --> Orders[Order Service]
+  Auth --> DB[(PostgreSQL)]
+  Users --> DB
+  Orders --> DB
+  Users --> Cache[(Redis)]`,
+  layout: {},
+};
+
+const blockData2 = {
+  source: `C4Context
+  title Backend Services Context
+  Person(dev, "Developer", "Deploys & monitors")
+  System(api, "API Gateway", "Entry point for all requests")
+  System(auth, "Auth Service", "JWT & OAuth2")
+  System_Ext(db, "PostgreSQL", "Primary data store")
+  System_Ext(cache, "Redis", "Session & cache")
+  Rel(dev, api, "Deploys to")
+  Rel(api, auth, "Authenticates via")
+  Rel(auth, db, "Reads users from")
+  Rel(api, cache, "Caches via")`,
+  layout: {},
+};
+
+let currentTheme = 'dark';
+
+// ── Create diagram instances ──────────────────────────────────────────
+let d1 = GMermaid.create(document.getElementById('diagram1'), {
+  source:   blockData1.source,
+  layout:   blockData1.layout,
+  theme:    currentTheme,
+  keyboard: false,
+});
+d1.on('nodeMove', ({ id, x, y }) => { blockData1.layout[id] = { x, y }; updateStateView(); });
+d1.on('labelEdit', () => updateStateView());
+
+let d2 = GMermaid.create(document.getElementById('diagram2'), {
+  source:   blockData2.source,
+  layout:   blockData2.layout,
+  theme:    currentTheme,
+  keyboard: false,
+});
+
+// ── Source editors ────────────────────────────────────────────────────
+document.getElementById('editor1').value = blockData1.source;
+document.getElementById('editor2').value = blockData2.source;
+
+// Block 1 controls
+document.getElementById('btn1Fit').addEventListener('click', () => d1.fitToContent());
+document.getElementById('btn1Source').addEventListener('click', () => {
+  document.getElementById('source1').classList.toggle('open');
+});
+document.getElementById('btn1Svg').addEventListener('click', () => {
+  const svg = d1.exportSVG();
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })),
+    download: 'diagram.svg',
+  });
+  a.click();
+});
+document.getElementById('btn1Apply').addEventListener('click', () => {
+  blockData1.source = document.getElementById('editor1').value;
+  blockData1.layout = {};
+  d1.load(blockData1.source);
+  updateStateView();
+});
+document.getElementById('btn1Reset').addEventListener('click', () => {
+  blockData1.layout = {};
+  d1.loadState({ source: blockData1.source, layout: {} });
+  updateStateView();
+});
+
+// Block 2 controls
+document.getElementById('btn2Fit').addEventListener('click', () => d2.fitToContent());
+document.getElementById('btn2Source').addEventListener('click', () => {
+  document.getElementById('source2').classList.toggle('open');
+});
+document.getElementById('btn2Apply').addEventListener('click', () => {
+  blockData2.source = document.getElementById('editor2').value;
+  d2.load(blockData2.source);
+});
+
+// ── Theme switcher ─────────────────────────────────────────────────────
+function applyTheme(theme) {
+  currentTheme = theme;
+  d1.setTheme(theme); d2.setTheme(theme);
+  document.querySelectorAll('[id^="btn"][id$="Dark"],[id^="btn"][id$="Light"],[id^="btn"][id$="Github"]').forEach(b => {
+    b.classList.toggle('active', b.id.toLowerCase().includes(theme));
+  });
+  document.getElementById('btnDark').classList.toggle('active', theme === 'dark');
+  document.getElementById('btnLight').classList.toggle('active', theme === 'light');
+  document.getElementById('btnGithub').classList.toggle('active', theme === 'github');
+  // Update gm-container background to match theme
+  const bg = theme === 'dark' ? '#0d1117' : '#ffffff';
+  document.body.style.background = bg;
+}
+
+document.getElementById('btnDark').addEventListener('click',   () => applyTheme('dark'));
+document.getElementById('btnLight').addEventListener('click',  () => applyTheme('light'));
+document.getElementById('btnGithub').addEventListener('click', () => applyTheme('github'));
+
+// ── Web Component theme switcher ──────────────────────────────────────
+const wc = document.getElementById('wcDemo');
+document.querySelectorAll('[data-wc-theme]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    wc.setAttribute('theme', btn.dataset.wcTheme);
+    document.querySelectorAll('[data-wc-theme]').forEach(b =>
+      b.classList.toggle('active', b === btn)
+    );
+  });
+});
+
+// ── Serialized state view ─────────────────────────────────────────────
+function updateStateView() {
+  const state = {
+    blocks: [
+      { type: 'diagram', data: blockData1 },
+    ],
+  };
+  document.getElementById('stateJson').textContent = JSON.stringify(state, null, 2);
+}
+updateStateView();
+</script>
+</body>
+</html>

@@ -1,0 +1,692 @@
+<!doctype html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gMermaid — Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../themes/dark.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0d1117; color: #e6edf3; font-family: 'Sora', sans-serif; }
+  #app { display: flex; height: 100vh; }
+
+  #sidebar {
+    width: 320px; flex-shrink: 0;
+    background: #161b22; border-right: 1px solid #30363d;
+    display: flex; flex-direction: column;
+  }
+  #sidebar header { padding: 14px 16px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 10px; }
+  .brand { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #3fb950; }
+  .ver   { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8b949e;
+    background: #1c2128; padding: 2px 6px; border-radius: 4px; }
+
+  #editor {
+    flex: 1; padding: 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    background: #0d1117; color: #e6edf3; border: none; outline: none;
+    resize: none; line-height: 1.7;
+  }
+
+  #examples {
+    padding: 8px 10px; border-top: 1px solid #30363d;
+    display: flex; flex-wrap: wrap; gap: 5px;
+  }
+  .ex-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    background: #1c2128; color: #8b949e; border: 1px solid #30363d;
+    border-radius: 5px; padding: 4px 9px; cursor: pointer; transition: .15s;
+  }
+  .ex-btn:hover { border-color: #3fb950; color: #3fb950; }
+  .ex-btn.active { background: rgba(63,185,80,.12); border-color: #3fb950; color: #3fb950; }
+
+  #toolbar { padding: 8px 10px; border-top: 1px solid #30363d; display: flex; gap: 5px; flex-wrap: wrap; }
+  .btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: #1c2128; color: #e6edf3; border: 1px solid #30363d;
+    border-radius: 5px; padding: 5px 10px; cursor: pointer; transition: .15s;
+  }
+  .btn:hover { border-color: #3fb950; color: #3fb950; }
+  .btn.active { background: rgba(63,185,80,.15); border-color: #3fb950; color: #3fb950; }
+  .btn:disabled { opacity: .35; cursor: default; pointer-events: none; }
+
+  #canvas { flex: 1; position: relative; }
+  #diagram { width: 100%; height: 100%; }
+
+  /* ── Pie ── */
+  .gm-pie-title {
+    fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600;
+  }
+  .gm-pie-pct {
+    fill: #0d1117; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    text-shadow: 0 0 3px rgba(255,255,255,.4);
+  }
+  .gm-pie-legend-text {
+    fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 12px;
+  }
+
+  /* ── Gantt ── */
+  .gm-gantt-title {
+    fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600;
+  }
+  .gm-gantt-axis-label {
+    fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  }
+  .gm-gantt-section {
+    fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 12px;
+  }
+  .gm-gantt-bar-label {
+    fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 11px;
+  }
+
+  /* ── Git ── */
+  .gm-git-branch-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+  .gm-git-label {
+    fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  }
+  .gm-git-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+  }
+
+  /* ── Mindmap ── */
+  .gm-mm-node { cursor: move; }
+  .gm-mm-node.gm-dragging .gm-mm-shape { stroke: #3fb950 !important; opacity: 0.85; }
+  .gm-mm-edge { fill: none; stroke-width: 1.5px; }
+  .gm-mm-label { pointer-events: none; }
+
+  /* ── Timeline ── */
+  .gm-timeline-title {
+    fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600;
+  }
+  .gm-timeline-period {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+  }
+  .gm-timeline-event {
+    fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 11px;
+  }
+  .gm-timeline-section {
+    fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  }
+
+  /* ── Journey ── */
+  .gm-journey-title {
+    fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600;
+  }
+  .gm-journey-section {
+    fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 11px; font-weight: 600;
+  }
+  .gm-journey-task  { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 10px; }
+  .gm-journey-score { fill: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
+  .gm-journey-actor { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; }
+
+  /* ── C4 ── */
+  .gm-c4-title {
+    fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600;
+  }
+  .gm-c4-kind  { fill: rgba(255,255,255,.55); font-family: 'JetBrains Mono', monospace; font-size: 10px; font-style: italic; }
+  .gm-c4-label { fill: #fff; font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 600; }
+  .gm-c4-tech  { fill: rgba(255,255,255,.7); font-family: 'JetBrains Mono', monospace; font-size: 10px; font-style: italic; }
+  .gm-c4-desc  { fill: rgba(255,255,255,.65); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+  .gm-c4-rel-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+  .gm-c4-box { filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); }
+
+  /* ── Quadrant ── */
+  .gm-quadrant-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; pointer-events: none; }
+  .gm-quadrant-qlabel { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 11px; pointer-events: none; opacity: .7; }
+  .gm-quadrant-axis-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-quadrant-point-label { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 10px; pointer-events: none; }
+  /* ── Requirement ── */
+  .gm-req-rel { transition: stroke .12s; }
+  .gm-req-rel-label { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  /* ── Sankey ── */
+  .gm-sankey-flow { transition: opacity .12s; } .gm-sankey-flow:hover { opacity: .7 !important; }
+  .gm-sankey-label { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 11px; pointer-events: none; }
+  /* ── XY Chart ── */
+  .gm-xy-title { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; pointer-events: none; }
+  .gm-xy-tick  { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; pointer-events: none; }
+  .gm-xy-axis-label { fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 11px; pointer-events: none; }
+  .gm-xy-bar { transition: opacity .12s; } .gm-xy-bar:hover { opacity: .8; }
+  .gm-xy-line { stroke-linecap: round; }
+  /* ── Architecture ── */
+  .gm-arch-group-label { pointer-events: none; fill: #8b949e; font-family: 'Sora', sans-serif; font-size: 10px; }
+  /* ── Kanban ── */
+  .gm-kanban-col-label  { pointer-events: none; }
+  .gm-kanban-card-label { fill: #e6edf3; font-family: 'Sora', sans-serif; font-size: 11px; pointer-events: none; }
+  .gm-kanban-ticket     { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; }
+  .gm-kanban-card { transition: stroke .12s; } .gm-kanban-card:hover { stroke: #3fb950 !important; }
+  /* ── Packet ── */
+  .gm-packet-bit   { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; }
+  .gm-packet-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; pointer-events: none; }
+  .gm-packet-field { transition: opacity .12s; } .gm-packet-field:hover { opacity: 1 !important; }
+
+  #status {
+    position: fixed; bottom: 12px; right: 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e;
+    background: rgba(22,27,34,.92); border: 1px solid #30363d;
+    border-radius: 8px; padding: 5px 12px; z-index: 10;
+    max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <header>
+      <span class="brand">gMermaid</span>
+      <span class="ver">v0.6.0</span>
+    </header>
+
+    <textarea id="editor" spellcheck="false">flowchart LR
+  A[Start] --> B{Is valid?}
+  B -->|Yes| C[Process]
+  B -->|No|  D[Error]
+  C --> E((End))
+  D --> A</textarea>
+
+    <div id="examples">
+      <button class="ex-btn active" data-ex="flowchart">Flowchart</button>
+      <button class="ex-btn" data-ex="flowchart-tb">Flow TB</button>
+      <button class="ex-btn" data-ex="sequence">Sequence</button>
+      <button class="ex-btn" data-ex="class">Class</button>
+      <button class="ex-btn" data-ex="state">State</button>
+      <button class="ex-btn" data-ex="erd">ERD</button>
+      <button class="ex-btn" data-ex="pie">Pie</button>
+      <button class="ex-btn" data-ex="gantt">Gantt</button>
+      <button class="ex-btn" data-ex="git">Git</button>
+      <button class="ex-btn" data-ex="mindmap">Mindmap</button>
+      <button class="ex-btn" data-ex="timeline">Timeline</button>
+      <button class="ex-btn" data-ex="journey">Journey</button>
+      <button class="ex-btn" data-ex="c4">C4</button>
+      <button class="ex-btn" data-ex="block">Block</button>
+      <button class="ex-btn" data-ex="quadrant">Quadrant</button>
+      <button class="ex-btn" data-ex="requirement">Requirement</button>
+      <button class="ex-btn" data-ex="sankey">Sankey</button>
+      <button class="ex-btn" data-ex="xychart">XY Chart</button>
+      <button class="ex-btn" data-ex="architecture">Architecture</button>
+      <button class="ex-btn" data-ex="kanban">Kanban</button>
+      <button class="ex-btn" data-ex="packet">Packet</button>
+    </div>
+
+    <div id="toolbar">
+      <button class="btn" id="btnRender">▶ Render</button>
+      <button class="btn" id="btnFit">⤢ Fit</button>
+      <button class="btn" id="btnZoomIn">+</button>
+      <button class="btn" id="btnZoomOut">−</button>
+      <button class="btn active" id="btnCurved">∿ Curved</button>
+      <button class="btn" id="btnSnap">⊞ Snap</button>
+      <button class="btn" id="btnUndo" disabled>↩ Undo</button>
+      <button class="btn" id="btnRedo" disabled>↪ Redo</button>
+      <button class="btn" id="btnSvg">↧ SVG</button>
+      <button class="btn" id="btnPng">↧ PNG</button>
+      <button class="btn" id="btnSave">⬆ Save</button>
+      <button class="btn" id="btnLoad">⬇ Load</button>
+    </div>
+  </div>
+
+  <div id="canvas">
+    <div id="diagram"></div>
+  </div>
+</div>
+<div id="status">Ready · Double-click a node to edit its label · Ctrl+Z/Y to undo/redo</div>
+
+<script type="module">
+import { GMermaid } from '../src/index.js';
+
+const EXAMPLES = {
+  'flowchart': `flowchart LR
+  A[Start] --> B{Is valid?}
+  B -->|Yes| C[Process]
+  B -->|No|  D[Error]
+  C --> E((End))
+  D --> A`,
+
+  'flowchart-tb': `flowchart TB
+  UI[Frontend] --> API[API Gateway]
+  API --> Auth[Auth Service]
+  API --> DB[(Database)]
+  Auth --> DB
+  API --> Cache[(Redis)]
+  Cache --> DB`,
+
+  'sequence': `sequenceDiagram
+  participant C as Client
+  participant S as Server
+  participant DB as Database
+  C->>S: POST /login
+  activate S
+  S->>DB: SELECT user WHERE email=?
+  DB-->>S: user record
+  S-->>C: 200 OK + JWT token
+  deactivate S
+  note right of C: Store token
+  loop Every 15min
+    C->>S: GET /refresh
+    S-->>C: new token
+  end
+  alt token expired
+    C->>S: GET /api/data
+    S-->>C: 401 Unauthorized
+  else token valid
+    C->>S: GET /api/data
+    S-->>C: 200 + data
+  end`,
+
+  'class': `classDiagram
+  class Animal {
+    <<abstract>>
+    +String name
+    #int age
+    +eat() void
+    +sleep() void
+    +makeSound()* void
+  }
+  class Dog {
+    +String breed
+    +bark() void
+    +makeSound() void
+  }
+  class Cat {
+    +bool indoor
+    +purr() void
+    +makeSound() void
+  }
+  class Owner {
+    +String name
+    +adopt(Animal a) void
+  }
+  Animal <|-- Dog : extends
+  Animal <|-- Cat : extends
+  Owner "1" --> "0..*" Animal : owns`,
+
+  'state': `stateDiagram-v2
+  [*] --> Idle
+  Idle --> Loading : submit
+  Loading --> Success : ok
+  Loading --> Error : fail
+  Success --> [*]
+  Error --> Idle : retry
+  state Loading {
+    [*] --> Fetching
+    Fetching --> Parsing : received
+    Parsing --> [*]
+  }`,
+
+  'pie': `pie title Pet Adoption by Volunteers
+    "Dogs" : 386
+    "Cats" : 85
+    "Rats" : 15
+    "Fish" : 42
+    "Birds" : 27`,
+
+  'gantt': `gantt
+    title Project Schedule
+    dateFormat YYYY-MM-DD
+    section Planning
+        Requirements  : done, r1, 2024-01-01, 7d
+        Architecture  : done, r2, after r1, 7d
+    section Development
+        Backend API   : active, d1, after r2, 21d
+        Frontend UI   : d2, after r2, 28d
+    section Release
+        Testing       : crit, t1, after d1, 14d
+        Deploy        : crit, after t1, 3d`,
+
+  'git': `gitGraph
+    commit id: "Init" msg: "Initial commit"
+    commit id: "Setup" msg: "Project setup"
+    branch feature/auth
+    checkout feature/auth
+    commit id: "Login" msg: "Add login"
+    commit id: "JWT" msg: "JWT tokens"
+    checkout main
+    branch feature/ui
+    checkout feature/ui
+    commit id: "UI1" msg: "Base components"
+    checkout main
+    merge feature/auth id: "M1" tag: "v0.1"
+    commit id: "Fix" msg: "Bug fix"
+    merge feature/ui id: "M2"
+    commit id: "Rel" msg: "Release" tag: "v1.0"`,
+
+  'mindmap': `mindmap
+  root((gMermaid))
+    Diagrams
+      Flowchart
+      ERD
+      Sequence
+      Class
+      State
+    New Types
+      Pie
+      Gantt
+      Git
+      Mindmap
+      Timeline
+      Journey
+      C4
+    Features
+      Pan & Zoom
+      Drag Nodes
+      Export
+      (SVG / PNG)`,
+
+  'timeline': `timeline
+    title History of gMermaid
+    section Alpha
+      2024 : v0.1 Flowchart
+           : v0.2 ERD & Sequence
+    section Beta
+      2025 : v0.3 Class & State
+           : v0.4 Pie, Gantt, Git
+    section Stable
+      2025 : v0.5 Mindmap, Timeline, Journey, C4`,
+
+  'journey': `journey
+    title Developer Workflow
+    section Plan
+      Write spec: 5: Dev
+      Review spec: 4: Dev, Lead
+    section Code
+      Implement: 4: Dev
+      Write tests: 3: Dev
+      Code review: 4: Dev, Lead
+    section Ship
+      Deploy staging: 5: Dev, DevOps
+      QA sign-off: 4: QA
+      Deploy prod: 5: DevOps`,
+
+  'c4': `C4Context
+    title System Context — Online Store
+    Person(customer, "Customer", "Buys products online")
+    Person(admin, "Admin", "Manages catalog and orders")
+    System(store, "Online Store", "Web + mobile shopping platform")
+    System_Ext(payment, "Payment Gateway", "Stripe / PayPal")
+    System_Ext(email, "Email Service", "SendGrid notifications")
+    Rel(customer, store, "Shops at")
+    Rel(admin, store, "Manages")
+    Rel(store, payment, "Processes payments via")
+    Rel(store, email, "Sends emails via")`,
+
+  'erd': `erDiagram
+  CUSTOMER {
+    bigint id PK
+    varchar name
+    varchar email
+  }
+  ORDER {
+    bigint id PK
+    bigint customer_id FK
+    varchar status
+    numeric total
+  }
+  ORDER_ITEM {
+    bigint id PK
+    bigint order_id FK
+    bigint product_id FK
+    integer quantity
+  }
+  PRODUCT {
+    bigint id PK
+    varchar name
+    numeric price
+  }
+  CUSTOMER ||--o{ ORDER : places
+  ORDER ||--|{ ORDER_ITEM : contains
+  PRODUCT ||--o{ ORDER_ITEM : "referenced by"`,
+
+  'block': `block-beta
+    columns 3
+    A["Load Balancer"] space B["API Gateway"]
+    C["Auth Service"] D["User Service"] E["Order Service"]
+    F["PostgreSQL"] space G["Redis Cache"]
+    A --> B
+    B --> C
+    B --> D
+    B --> E
+    C --> F
+    D --> F
+    E --> F
+    D --> G`,
+
+  'quadrant': `quadrantChart
+    title Technology Investment Priorities
+    x-axis Low Effort --> High Effort
+    y-axis Low Impact --> High Impact
+    quadrant-1 Invest heavily
+    quadrant-2 Quick wins
+    quadrant-3 Deprioritize
+    quadrant-4 Evaluate ROI
+    React: [0.7, 0.8]
+    TypeScript: [0.4, 0.9]
+    Docker: [0.5, 0.75]
+    GraphQL: [0.65, 0.5]
+    Kubernetes: [0.85, 0.7]
+    Redis: [0.4, 0.6]
+    gRPC: [0.75, 0.45]
+    Jest: [0.3, 0.7]`,
+
+  'requirement': `requirementDiagram
+    requirement auth_req {
+        id: 1
+        text: Users must authenticate via JWT
+        risk: high
+        verifymethod: test
+    }
+    requirement perf_req {
+        id: 2
+        text: API response under 200ms p99
+        risk: medium
+        verifymethod: performance
+    }
+    requirement data_req {
+        id: 3
+        text: All PII must be encrypted at rest
+        risk: high
+        verifymethod: inspection
+    }
+    element api_service {
+        type: microservice
+        docref: api-spec.yaml
+    }
+    element auth_module {
+        type: component
+        docref: auth-design.md
+    }
+    api_service - satisfies -> auth_req
+    api_service - satisfies -> perf_req
+    auth_module - satisfies -> data_req
+    auth_module - traces -> auth_req`,
+
+  'sankey': `sankey-beta
+    Solar,Electricity,120
+    Solar,Heat,30
+    Wind,Electricity,85
+    Hydro,Electricity,45
+    Electricity,Industry,110
+    Electricity,Homes,80
+    Electricity,Transport,60
+    Heat,Homes,30`,
+
+  'xychart-beta': `xychart-beta
+    title "Monthly Revenue 2024"
+    x-axis [Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec]
+    y-axis "Revenue ($k)" 0 --> 120
+    bar [45, 52, 61, 73, 85, 92, 88, 95, 78, 82, 91, 105]
+    line [42, 50, 58, 70, 82, 89, 86, 93, 76, 80, 89, 102]`,
+
+  'xychart': `xychart-beta
+    title "Monthly Revenue 2024"
+    x-axis [Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec]
+    y-axis "Revenue ($k)" 0 --> 120
+    bar [45, 52, 61, 73, 85, 92, 88, 95, 78, 82, 91, 105]
+    line [42, 50, 58, 70, 82, 89, 86, 93, 76, 80, 89, 102]`,
+
+  'architecture': `architecture-beta
+    service lb(internet)[Load Balancer]
+    service api(server)[API Gateway]
+    service auth(server)[Auth Service]
+    service db(database)[PostgreSQL]
+    service cache(server)[Redis]
+    service queue(queue)[Message Queue]
+    service worker(server)[Background Worker]
+    lb:R -- L:api
+    api:R -- L:auth
+    api:B -- T:db
+    api:R -- L:cache
+    api:B -- T:queue
+    queue:R -- L:worker
+    worker:B -- T:db`,
+
+  'kanban': `kanban
+    Backlog
+        feat1[OAuth Integration]@{ ticket: JIRA-101, priority: High }
+        feat2[Dashboard Widgets]@{ ticket: JIRA-102 }
+        bug1[Fix Memory Leak]@{ ticket: JIRA-103, priority: Very High }
+    "In Progress"
+        feat3[API Rate Limiting]@{ ticket: JIRA-99, priority: High }
+        bug2[Login Redirect Bug]@{ ticket: JIRA-100 }
+    Review
+        feat4[Dark Mode]@{ ticket: JIRA-95 }
+    Done
+        feat5[User Profiles]@{ ticket: JIRA-88 }
+        feat6[File Upload]@{ ticket: JIRA-90 }`,
+
+  'packet': `packet-beta
+    0-15: "Source Port"
+    16-31: "Destination Port"
+    32-63: "Sequence Number"
+    64-95: "Acknowledgment Number"
+    96-99: "Data Offset"
+    100-102: "Reserved"
+    103: "NS"
+    104: "CWR"
+    105: "ECE"
+    106: "URG"
+    107: "ACK"
+    108: "PSH"
+    109: "RST"
+    110: "SYN"
+    111: "FIN"
+    112-127: "Window Size"
+    128-143: "Checksum"
+    144-159: "Urgent Pointer"`,
+};
+
+const editor  = document.getElementById('editor');
+const status  = document.getElementById('status');
+const btnUndo = document.getElementById('btnUndo');
+const btnRedo = document.getElementById('btnRedo');
+let diagram   = null;
+let curved    = true;
+let snap      = false;
+
+function render(source) {
+  if (diagram) diagram.destroy();
+  document.getElementById('diagram').innerHTML = '';
+  try {
+    diagram = GMermaid.create(document.getElementById('diagram'), {
+      source,
+      curved,
+      theme: 'dark',
+      snapGrid: snap ? 16 : 0,
+    });
+    diagram.on('nodeMove', ({ id, x, y }) => {
+      status.textContent = `Moved: ${id} → (${Math.round(x)}, ${Math.round(y)})`;
+    });
+    diagram.on('labelEdit', ({ id, label }) => {
+      status.textContent = `Label: ${id} → "${label}"`;
+    });
+    diagram.on('historyChange', ({ canUndo, canRedo }) => {
+      btnUndo.disabled = !canUndo;
+      btnRedo.disabled = !canRedo;
+    });
+    status.textContent = `Rendered ✓  [${GMermaid.detectType(source)}]  · dbl-click to edit label`;
+  } catch (err) {
+    status.textContent = '⚠ ' + err.message;
+    console.error(err);
+  }
+}
+
+render(editor.value);
+
+document.getElementById('btnRender').onclick = () => render(editor.value);
+
+let debounce;
+editor.addEventListener('input', () => {
+  clearTimeout(debounce);
+  debounce = setTimeout(() => render(editor.value), 700);
+});
+
+document.getElementById('btnFit').onclick    = () => diagram?.fitToContent();
+document.getElementById('btnZoomIn').onclick = () => diagram?.zoomIn();
+document.getElementById('btnZoomOut').onclick= () => diagram?.zoomOut();
+
+document.getElementById('btnUndo').onclick = () => { diagram?.undo(); };
+document.getElementById('btnRedo').onclick = () => { diagram?.redo(); };
+
+document.getElementById('btnCurved').onclick = function() {
+  curved = !curved;
+  this.classList.toggle('active', curved);
+  this.textContent = curved ? '∿ Curved' : '⌐ Straight';
+  render(editor.value);
+};
+
+document.getElementById('btnSnap').onclick = function() {
+  snap = !snap;
+  this.classList.toggle('active', snap);
+  diagram?.setSnapGrid(snap ? 16 : 0);
+  status.textContent = snap ? 'Snap to grid: ON (16px)' : 'Snap to grid: OFF';
+};
+
+document.getElementById('btnSvg').onclick = () => {
+  if (!diagram) return;
+  const svg  = diagram.exportSVG({ inline: true });
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const a    = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'diagram.svg'; a.click();
+};
+
+document.getElementById('btnPng').onclick = async () => {
+  if (!diagram) return;
+  status.textContent = 'Exporting PNG…';
+  try {
+    const dataUrl = await diagram.exportPNG({ scale: 2 });
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = 'diagram.png'; a.click();
+    status.textContent = 'PNG exported ✓';
+  } catch (err) {
+    status.textContent = '⚠ PNG export: ' + err.message;
+  }
+};
+
+document.getElementById('btnSave').onclick = () => {
+  if (!diagram) return;
+  const state = diagram.getState();
+  localStorage.setItem('gmermaid_state', JSON.stringify(state));
+  status.textContent = `State saved (${Object.keys(state.layout).length} nodes)`;
+};
+
+document.getElementById('btnLoad').onclick = () => {
+  const raw = localStorage.getItem('gmermaid_state');
+  if (!raw) { status.textContent = 'No saved state'; return; }
+  const state = JSON.parse(raw);
+  editor.value = state.source;
+  if (diagram) diagram.loadState(state);
+  else render(state.source);
+  status.textContent = `State loaded (${Object.keys(state.layout).length} nodes)`;
+};
+
+document.getElementById('examples').addEventListener('click', e => {
+  const btn = e.target.closest('.ex-btn');
+  if (!btn) return;
+  const key = btn.dataset.ex;
+  if (!key || !EXAMPLES[key]) return;
+  document.querySelectorAll('.ex-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  editor.value = EXAMPLES[key];
+  render(editor.value);
+});
+</script>
+</body>
+</html>
