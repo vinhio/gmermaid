@@ -1,0 +1,15 @@
+gitGraph
+    commit id: "c1"
+    commit id: "c2"
+    branch experiment order: 1
+    commit id: "e1" type: HIGHLIGHT
+    commit id: "e2"
+    checkout main
+    commit id: "c3"
+    branch fix order: 2
+    commit id: "x1"
+    checkout main
+    merge fix id: "mf" tag: "v1.1"
+    cherry-pick id: "e1" parent: "c2"
+    commit id: "c4" type: REVERSE
+    commit id: "c5" tag: "v1.2"

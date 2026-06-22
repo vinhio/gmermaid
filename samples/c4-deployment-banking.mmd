@@ -1,0 +1,24 @@
+C4Deployment
+    title Deployment Diagram — Internet Banking (Live)
+
+    Deployment_Node(device, "Customer's Device", "Windows / macOS / iOS / Android") {
+        Container(spa, "Single-Page App", "React")
+    }
+
+    Deployment_Node(aws, "Amazon Web Services", "us-east-1") {
+        Deployment_Node(eks, "EKS Cluster", "Kubernetes 1.29") {
+            Container(web, "Web Application", "Java")
+            Container(api, "API Application", "Java")
+        }
+        Deployment_Node(rds, "Amazon RDS", "PostgreSQL 16") {
+            ContainerDb(db, "Database", "PostgreSQL")
+        }
+        Deployment_Node(msk, "Amazon MSK", "Managed Kafka") {
+            ContainerQueue(bus, "Event Bus", "Kafka")
+        }
+    }
+
+    Rel(spa, web, "Loads static content from", "HTTPS")
+    Rel(spa, api, "Makes API calls to", "JSON/HTTPS")
+    Rel(api, db, "Reads from and writes to", "SQL/TCP")
+    Rel(api, bus, "Publishes events to", "Kafka")

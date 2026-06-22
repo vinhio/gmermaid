@@ -1,0 +1,50 @@
+erDiagram
+    direction LR
+    p[Patient] ||--o{ APPOINTMENT : books
+    d[Doctor] ||--o{ APPOINTMENT : attends
+    d ||--|| DEPARTMENT : "works in"
+    APPOINTMENT ||--o| PRESCRIPTION : produces
+    PRESCRIPTION }|--|{ DRUG : includes
+    p ||--o{ ADMISSION : has
+    ADMISSION }o--|| ROOM : "assigned to"
+    ADMISSION ||..o{ INVOICE : generates
+
+    p {
+        uuid id PK
+        varchar mrn UK "medical record no"
+        varchar name
+        date dob
+        varchar blood_type
+    }
+    d {
+        uuid id PK
+        uuid department_id FK
+        varchar name
+        varchar specialty
+        varchar license UK
+    }
+    APPOINTMENT {
+        uuid id PK
+        uuid patient_id FK
+        uuid doctor_id FK
+        timestamp scheduled_at
+        varchar status
+    }
+    PRESCRIPTION {
+        uuid id PK
+        uuid appointment_id FK,UK
+        text notes
+    }
+    DRUG {
+        uuid id PK
+        varchar name
+        varchar dosage_form
+    }
+    ROOM {
+        int number PK
+        varchar ward
+        boolean occupied
+    }
+
+    classDef clinical fill:#1f6feb,stroke:#ffffff,color:#ffffff
+    class d,DEPARTMENT clinical

@@ -1,0 +1,50 @@
+erDiagram
+    USER ||--o{ POST : authors
+    USER ||--o{ COMMENT : posts
+    USER }o--o{ ROLE : "granted"
+    POST ||--o{ COMMENT : receives
+    POST }o--o{ TAG : "tagged with"
+    POST ||--|| POST_STATS : tracks
+    COMMENT |o--o{ COMMENT : "replies to"
+    POST ||..o{ REVISION : "versioned by"
+
+    USER {
+        bigint id PK
+        varchar username UK
+        varchar email UK
+        varchar password_hash
+        boolean is_active
+    }
+    POST {
+        bigint id PK
+        bigint author_id FK
+        varchar slug UK
+        varchar title
+        text body
+        varchar status "draft|published"
+        timestamp published_at
+    }
+    COMMENT {
+        bigint id PK
+        bigint post_id FK
+        bigint author_id FK
+        bigint parent_id FK "threaded reply"
+        text body
+        boolean approved
+    }
+    TAG {
+        bigint id PK
+        varchar name UK
+        varchar slug UK
+    }
+    ROLE {
+        bigint id PK
+        varchar name UK "admin|editor|author"
+    }
+    REVISION {
+        bigint id PK
+        bigint post_id FK
+        int version
+        text body_snapshot
+        timestamp created_at
+    }

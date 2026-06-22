@@ -1,0 +1,28 @@
+stateDiagram-v2
+    direction LR
+    [*] --> Cart
+    Cart --> Checkout : proceed
+    Checkout --> Validating : submit
+
+    state Validating {
+        [*] --> CheckStock
+        CheckStock --> CheckPayment : in stock
+        CheckStock --> [*] : out of stock
+        CheckPayment --> [*] : authorized
+    }
+
+    Validating --> Decision
+    state Decision <<choice>>
+    Decision --> Paid : valid
+    Decision --> Cart : invalid
+
+    Paid : Payment captured
+    Paid --> Shipped : dispatch
+    Shipped --> Delivered : arrive
+    Delivered --> [*]
+
+    note right of Decision : Branch on the\nvalidation result
+    classDef good fill:#238636,stroke:#ffffff,color:#ffffff
+    classDef warn fill:#9e6a03,stroke:#ffffff,color:#ffffff
+    class Delivered good
+    class Decision warn

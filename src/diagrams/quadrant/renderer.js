@@ -60,29 +60,41 @@ export function renderQuadrant(ast, nodeLayer, edgeLayer) {
   g.appendChild(svgEl('line', { x1: PAD, y1: PAD + half, x2: PAD + SIZE, y2: PAD + half, stroke: 'var(--gm-panel-border)', 'stroke-width': 2 }));
   g.appendChild(svgEl('line', { x1: PAD + half, y1: PAD, x2: PAD + half, y2: PAD + SIZE, stroke: 'var(--gm-panel-border)', 'stroke-width': 2 }));
 
-  // Axis labels
+  // Axis labels — two-label axes anchor at the ends; single-label axes center.
   const al = 'gm-quadrant-axis-label';
-  g.appendChild(svgEl('text', { class: al, x: PAD,        y: PAD + SIZE + 18, 'dominant-baseline': 'middle' }, xAxis.low));
-  g.appendChild(svgEl('text', { class: al, x: PAD + SIZE, y: PAD + SIZE + 18, 'text-anchor': 'end', 'dominant-baseline': 'middle' }, xAxis.high));
-  g.appendChild(svgEl('text', { class: al, x: PAD - 8, y: PAD + SIZE, 'text-anchor': 'end', 'dominant-baseline': 'middle' }, yAxis.low));
-  g.appendChild(svgEl('text', { class: al, x: PAD - 8, y: PAD,        'text-anchor': 'end', 'dominant-baseline': 'middle' }, yAxis.high));
+  if (xAxis.single) {
+    g.appendChild(svgEl('text', { class: al, x: PAD + SIZE / 2, y: PAD + SIZE + 18, 'text-anchor': 'middle', 'dominant-baseline': 'middle' }, xAxis.low));
+  } else {
+    g.appendChild(svgEl('text', { class: al, x: PAD,        y: PAD + SIZE + 18, 'dominant-baseline': 'middle' }, xAxis.low));
+    g.appendChild(svgEl('text', { class: al, x: PAD + SIZE, y: PAD + SIZE + 18, 'text-anchor': 'end', 'dominant-baseline': 'middle' }, xAxis.high));
+  }
+  if (yAxis.single) {
+    // Center the single y label, rotated up the left edge.
+    g.appendChild(svgEl('text', { class: al, x: PAD - 22, y: PAD + SIZE / 2, 'text-anchor': 'middle', 'dominant-baseline': 'middle', transform: `rotate(-90 ${PAD - 22} ${PAD + SIZE / 2})` }, yAxis.low));
+  } else {
+    g.appendChild(svgEl('text', { class: al, x: PAD - 8, y: PAD + SIZE, 'text-anchor': 'end', 'dominant-baseline': 'middle' }, yAxis.low));
+    g.appendChild(svgEl('text', { class: al, x: PAD - 8, y: PAD,        'text-anchor': 'end', 'dominant-baseline': 'middle' }, yAxis.high));
+  }
 
-  // Points
+  // Points — honoring per-point style (radius/color/stroke) from inline or classDef.
   const HUES = [160, 220, 45, 330, 90, 270, 20, 185];
   points.forEach((pt, i) => {
     // Scale 0..1 coords to the plot box; flip y so higher y sits higher on screen.
     const px = PAD + pt.x * SIZE;
     const py = PAD + (1 - pt.y) * SIZE;
+    const st = pt.style ?? {};
+    const r  = st.radius ?? 8;
     g.appendChild(svgEl('circle', {
       class: 'gm-quadrant-point',
-      cx: px, cy: py, r: 8,
-      fill: `oklch(0.65 0.17 ${HUES[i % HUES.length]})`,
-      stroke: 'var(--gm-bg)', 'stroke-width': 2,
+      cx: px, cy: py, r,
+      fill: st.color ?? `oklch(0.65 0.17 ${HUES[i % HUES.length]})`,
+      stroke: st.strokeColor ?? 'var(--gm-bg)',
+      'stroke-width': st.strokeWidth ?? 2,
     }));
     const label = pt.label.length > 18 ? pt.label.slice(0, 17) + '…' : pt.label;
     g.appendChild(svgEl('text', {
       class: 'gm-quadrant-point-label',
-      x: px, y: py - 13,
+      x: px, y: py - r - 5,
       'text-anchor': 'middle', 'dominant-baseline': 'middle',
     }, label));
   });

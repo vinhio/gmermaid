@@ -1,0 +1,55 @@
+classDiagram
+    direction TB
+
+    namespace Domain {
+        class Account {
+            +String id
+            +Money balance
+            +deposit(Money m) void
+            +withdraw(Money m) void
+        }
+        class Money {
+            +long cents
+            +String currency
+            +plus(Money m) Money
+            +isNegative() bool
+        }
+        class AccountRepository {
+            <<interface>>
+            +findById(String id) Account
+            +save(Account a) void
+        }
+    }
+
+    namespace Application {
+        class TransferService {
+            -AccountRepository repo
+            +transfer(String from, String to, Money amount) void
+        }
+        class TransferCommand {
+            +String fromId
+            +String toId
+            +Money amount
+        }
+    }
+
+    namespace Infrastructure {
+        class JpaAccountRepository {
+            +findById(String id) Account
+            +save(Account a) void
+        }
+        class RestController {
+            +post(TransferCommand cmd) Response
+        }
+    }
+
+    Account *-- Money : balance
+    AccountRepository <|.. JpaAccountRepository
+    TransferService ..> AccountRepository : uses
+    TransferService ..> Account : mutates
+    TransferService --> TransferCommand : handles
+    RestController --> TransferService : delegates
+    RestController ..> TransferCommand : builds
+
+    note for TransferService "Orchestrates a transfer\nwithin one transaction"
+    note for AccountRepository "Port — implemented\nin Infrastructure"

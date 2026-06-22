@@ -130,16 +130,21 @@ export function renderTimeline(ast, nodeLayer, edgeLayer) {
       fill: color,
     }, item.period));
 
-    // Events (below axis)
-    for (let j = 0; j < item.events.length; j++) {
-      const ev    = item.events[j];
-      const label = ev.length > 18 ? ev.slice(0, 17) + '…' : ev;
-      g.appendChild(svgEl('text', {
-        class: 'gm-timeline-event',
-        x: cx, y: AXIS_Y + 22 + j * 17,
-        'text-anchor': 'middle',
-        'dominant-baseline': 'middle',
-      }, label));
+    // Events (below axis); each event may wrap on `<br>` into several lines.
+    let ey = AXIS_Y + 22;
+    for (const ev of item.events) {
+      for (const raw of ev.split(/<br\s*\/?>/i)) {
+        const ln    = raw.trim();
+        const label = ln.length > 18 ? ln.slice(0, 17) + '…' : ln;
+        g.appendChild(svgEl('text', {
+          class: 'gm-timeline-event',
+          x: cx, y: ey,
+          'text-anchor': 'middle',
+          'dominant-baseline': 'middle',
+        }, label));
+        ey += 17;
+      }
+      ey += 4; // small gap between distinct events
     }
   }
   flushSection(items.length);

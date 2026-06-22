@@ -1,0 +1,23 @@
+gitGraph
+    commit id: "init"
+    commit id: "v0.9" tag: "v0.9"
+    branch develop order: 1
+    commit id: "d1"
+    branch feature/login order: 2
+    commit id: "f1"
+    commit id: "f2" type: HIGHLIGHT
+    checkout develop
+    merge feature/login id: "m1"
+    branch feature/search order: 3
+    commit id: "s1"
+    commit id: "s2"
+    checkout develop
+    merge feature/search id: "m2"
+    checkout main
+    merge develop id: "rel1" tag: "v1.0" type: HIGHLIGHT
+    branch hotfix order: 4
+    commit id: "h1" type: REVERSE
+    checkout main
+    merge hotfix id: "hm" tag: "v1.0.1"
+    checkout develop
+    cherry-pick id: "h1"

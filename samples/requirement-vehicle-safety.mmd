@@ -1,0 +1,54 @@
+requirementDiagram
+    direction TB
+
+    requirement sys_safety {
+        id: SR-1
+        text: Vehicle shall meet ISO 26262 ASIL-D
+        risk: High
+        verifymethod: Analysis
+    }
+    functionalRequirement braking {
+        id: FR-1
+        text: Emergency braking within 0.5s
+        risk: High
+        verifymethod: Test
+    }
+    performanceRequirement latency {
+        id: PR-1
+        text: Sensor-to-actuator under 50ms
+        risk: Medium
+        verifymethod: Test
+    }
+    interfaceRequirement can_bus {
+        id: IR-1
+        text: CAN-FD bus at 5 Mbps
+        risk: Low
+        verifymethod: Inspection
+    }
+    designConstraint mcu {
+        id: DC-1
+        text: Lockstep dual-core MCU
+        risk: Medium
+        verifymethod: Inspection
+    }
+
+    element brake_ecu {
+        type: ECU
+        docref: hw/brake-ecu.pdf
+    }
+    element radar {
+        type: Sensor
+        docref: hw/radar.pdf
+    }
+
+    sys_safety - contains -> braking
+    sys_safety - contains -> latency
+    braking - derives -> can_bus
+    latency - refines -> braking
+    braking - satisfies -> brake_ecu
+    radar <- verifies - latency
+    mcu - traces -> sys_safety
+    brake_ecu - copies -> radar
+
+    classDef critical fill:#7a1f1f
+    class sys_safety,braking critical

@@ -4,6 +4,7 @@
  */
 
 import { svgEl } from '../../core/renderer.js';
+import { layoutFlowchart } from '../../core/layout.js';
 
 const BOX_W = 160, BOX_H = 90, H_GAP = 60, V_GAP = 50, PAD = 40, COLS = 3; // Box size, gaps, padding, columns.
 
@@ -82,17 +83,24 @@ export function renderRequirement(ast, nodeLayer, edgeLayer, interact) {
   const all = [...requirements, ...elements];
   if (!all.length) return;
 
-  // Lay requirements then elements onto a shared grid, wrapping every COLS cells.
-  all.forEach((item, i) => {
-    item.x = PAD + (i % COLS) * (BOX_W + H_GAP);
-    item.y = PAD + Math.floor(i / COLS) * (BOX_H + V_GAP);
-  });
+  // Relationship-aware layered layout (honors `direction`), falling back to a
+  // grid only when there are no relationships to drive the flow.
+  all.forEach(item => { item.w = BOX_W; item.h = BOX_H; });
+  if (ast.rels?.length) {
+    layoutFlowchart(all, ast.rels, ast.direction || 'TB');
+  } else {
+    all.forEach((item, i) => {
+      item.x = PAD + (i % COLS) * (BOX_W + H_GAP);
+      item.y = PAD + Math.floor(i / COLS) * (BOX_H + V_GAP);
+    });
+  }
   drawRels(ast, edgeLayer);
 
   for (const item of all) {
     // Requirements carry a `kind`; elements do not, so they get a neutral fill.
+    // An explicit `style`/`classDef` fill overrides the kind colour.
     const isReq = 'kind' in item;
-    const color = isReq ? kindColor(item.kind) : 'oklch(0.32 0.04 0)';
+    const color = item.style?.fill ?? (isReq ? kindColor(item.kind) : 'oklch(0.32 0.04 0)');
     const g = svgEl('g', { class: 'gm-node', 'data-id': item.id, transform: `translate(${item.x},${item.y})` });
 
     g.appendChild(svgEl('rect', { x: 0, y: 0, width: BOX_W, height: BOX_H, fill: color, rx: 6 }));
@@ -105,10 +113,16 @@ export function renderRequirement(ast, nodeLayer, edgeLayer, interact) {
     const info = (item.text ?? item.type ?? '').slice(0, 30);
     if (info) g.appendChild(svgEl('text', { class: 'gm-req-text', x: BOX_W/2, y: 54, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: 'rgba(255,255,255,.7)', 'font-size': '10', 'pointer-events': 'none' }, info.length > 24 ? info.slice(0,23)+'…' : info));
     if (item.risk) {
-      // Risk chip colour: red (high) / amber (medium) / green (low/other).
-      const rc = item.risk === 'high' ? 'oklch(0.6 0.18 30)' : item.risk === 'medium' ? 'oklch(0.65 0.14 60)' : 'oklch(0.6 0.1 155)';
-      g.appendChild(svgEl('rect', { x: 4, y: BOX_H - 18, width: 40, height: 14, fill: rc, rx: 3 }));
-      g.appendChild(svgEl('text', { x: 24, y: BOX_H - 11, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#fff', 'font-size': '8', 'pointer-events': 'none' }, item.risk));
+      // Risk chip colour: red (high) / amber (medium) / green (low/other). Case-insensitive.
+      const risk = String(item.risk).toLowerCase();
+      const rc = risk === 'high' ? 'oklch(0.6 0.18 30)' : risk === 'medium' ? 'oklch(0.65 0.14 60)' : 'oklch(0.6 0.1 155)';
+      g.appendChild(svgEl('rect', { x: 4, y: BOX_H - 18, width: 44, height: 14, fill: rc, rx: 3 }));
+      g.appendChild(svgEl('text', { x: 26, y: BOX_H - 11, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#fff', 'font-size': '8', 'pointer-events': 'none' }, item.risk));
+    }
+    // Verify-method chip (bottom-right) for requirements.
+    if (item.verifyMethod) {
+      g.appendChild(svgEl('rect', { x: BOX_W - 52, y: BOX_H - 18, width: 48, height: 14, fill: 'rgba(0,0,0,.3)', rx: 3 }));
+      g.appendChild(svgEl('text', { x: BOX_W - 28, y: BOX_H - 11, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: 'rgba(255,255,255,.8)', 'font-size': '8', 'pointer-events': 'none' }, item.verifyMethod));
     }
     if (interact) interact.attachDrag(g, item, () => drawRels(ast, edgeLayer));
     nodeLayer.appendChild(g);

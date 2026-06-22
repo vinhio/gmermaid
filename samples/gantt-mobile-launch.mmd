@@ -1,0 +1,22 @@
+gantt
+    title Mobile App Launch
+    dateFormat YYYY-MM-DD
+    axisFormat %b %d
+
+    section Engineering
+      Core features         : done, core, 2024-03-01, 3w
+      Push notifications    : active, push, after core, 10d
+      Offline mode          : crit, off, after core, 2w
+      Bugfix window         : 2024-04-10, until launch
+
+    section Marketing
+      Brand assets          : done, brand, 2024-03-15, 1w
+      Landing page          : lp, after brand, 5d
+      Press kit             : pk, after brand, 1w
+      Campaign prep         : active, camp, after lp pk, 2w
+
+    section Release
+      App store review      : crit, review, after off push, 1w
+      Launch                : crit, milestone, launch, after review camp, 1d
+
+    vert launch

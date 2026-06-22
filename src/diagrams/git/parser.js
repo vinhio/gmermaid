@@ -62,6 +62,7 @@ export function parseGit(text) {
   const commits   = [];
   const branchHead = new Map(); // name → last commit id
   let   currentBranch = 'main';
+  let   direction = 'LR';
   let   col = 0;
   let   commitCounter = 0;
 
@@ -80,10 +81,8 @@ export function parseGit(text) {
   ensureBranch('main', 0);
 
   for (const line of lines) {
-    if (/^gitGraph\b/i.test(line)) {
-      // Optional: `gitGraph LR` etc — ignore direction for now
-      continue;
-    }
+    const headM = line.match(/^gitGraph\s*(?:(TB|BT|LR)\b)?/i);
+    if (headM) { if (headM[1]) direction = headM[1].toUpperCase(); continue; }
 
     if (/^commit\b/i.test(line)) {
       const id  = parseAttr(line, 'id') ?? `c${++commitCounter}`;
@@ -105,10 +104,11 @@ export function parseGit(text) {
       const orderM = line.match(/order:\s*(\d+)/);
       const order  = orderM ? +orderM[1] : branches.size;
       ensureBranch(name, order);
-      // Branch head starts from current branch head
+      // Branch head starts from current branch head, and `branch` switches to it.
       if (!branchHead.has(name) && branchHead.has(currentBranch)) {
         branchHead.set(name, branchHead.get(currentBranch));
       }
+      currentBranch = name;
       continue;
     }
 
@@ -125,22 +125,26 @@ export function parseGit(text) {
       if (!src) continue;
       const id  = parseAttr(line, 'id') ?? `m${++commitCounter}`;
       const tag = parseAttr(line, 'tag') ?? null;
+      const type = parseAttrWord(line, 'type')?.toUpperCase() ?? 'NORMAL';
       // A merge commit has two parents: the current branch head and the source head.
       const srcHead = branchHead.get(src) ?? null;
       const dstHead = branchHead.get(currentBranch) ?? null;
       const parents = [dstHead, srcHead].filter(Boolean);
       const branch  = ensureBranch(currentBranch);
-      commits.push({ id, msg: `Merge ${src}`, tag, type: 'NORMAL', branch: currentBranch, parents, col: col++, row: branch.order });
+      commits.push({ id, msg: `Merge ${src}`, tag, type, isMerge: true, branch: currentBranch, parents, col: col++, row: branch.order });
       branchHead.set(currentBranch, id);
       continue;
     }
 
     if (/^cherry-pick\b/i.test(line)) {
-      const srcId = parseAttr(line, 'id');
-      const id    = `cp${++commitCounter}`;
+      const srcId  = parseAttr(line, 'id');
+      const parent = parseAttr(line, 'parent'); // parent of the cherry-picked commit (for merge commits)
+      const id     = `cp${++commitCounter}`;
       const branch = ensureBranch(currentBranch);
+      // Parents: the current head, plus a dashed link back to the source commit.
       const parents = branchHead.has(currentBranch) ? [branchHead.get(currentBranch)] : [];
-      commits.push({ id, msg: srcId ? `cherry-pick ${srcId}` : 'cherry-pick', tag: null, type: 'NORMAL', branch: currentBranch, parents, col: col++, row: branch.order });
+      const tag = srcId ? `cherry-pick:${srcId}` : null;
+      commits.push({ id, msg: '', tag, type: 'NORMAL', cherryFrom: srcId ?? null, cherryParent: parent ?? null, branch: currentBranch, parents, col: col++, row: branch.order });
       branchHead.set(currentBranch, id);
       continue;
     }
@@ -151,6 +155,7 @@ export function parseGit(text) {
 
   return {
     type: 'git',
+    direction,
     commits: commits.map(c => ({ ...c, isHead: headSet.has(c.id) })),
     branches: [...branches.values()].sort((a, b) => a.order - b.order),
     maxCol: col,

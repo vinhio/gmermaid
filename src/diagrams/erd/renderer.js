@@ -6,9 +6,32 @@
 
 import { svgEl } from '../../core/renderer.js';
 
-const TABLE_W  = 220; // table card width (px)
+const TABLE_W  = 160; // minimum table card width (px); grows to fit content
 const HEADER_H = 38;  // table header band height (px)
 const ROW_H    = 28;  // per-column row height (px)
+
+// Approx character widths (px) for the monospace var(--gm-font); used to size
+// the card to its content without measuring the live DOM.
+const CW_TITLE = 7.5; // table name (13px, bold)
+const CW_TAG   = 6.6; // "N cols" tag (10px)
+const CW_NAME  = 7.2; // column name (12px)
+const CW_TYPE  = 6.6; // column type (11px)
+
+/**
+ * Compute a table width wide enough to fit the header (title + "N cols" tag) and
+ * every column row (key-indent + name + gap + right-aligned type).
+ * @param {object} entity - Entity AST entry ({ name, columns }).
+ * @returns {number} The fitted width in px (>= TABLE_W).
+ */
+function tableWidth(entity) {
+  const tag = entity.columns.length + ' cols';
+  let w = 14 + entity.name.length * CW_TITLE + 16 + tag.length * CW_TAG + 14;
+  for (const col of entity.columns) {
+    const nameStart = (col.pk || col.fk) ? 30 : 14;
+    w = Math.max(w, nameStart + col.name.length * CW_NAME + 18 + col.type.length * CW_TYPE + 14);
+  }
+  return Math.max(TABLE_W, Math.ceil(w));
+}
 
 /**
  * Render an ERD AST into the given SVG layers.
@@ -24,8 +47,8 @@ export function renderERD(ast, nodeLayer, edgeLayer, interact, curved = true) {
   edgeLayer.replaceChildren();
 
   for (const entity of ast.entities) {
-    // Card height = header band plus one row per column.
-    entity.w = TABLE_W;
+    // Card sized to its content: fitted width, header band + one row per column.
+    entity.w = tableWidth(entity);
     entity.h = HEADER_H + entity.columns.length * ROW_H;
     const g = buildTable(entity);
     nodeLayer.appendChild(g);
@@ -43,17 +66,18 @@ export function renderERD(ast, nodeLayer, edgeLayer, interact, curved = true) {
  */
 function buildTable(entity) {
   const h = entity.h;
+  const W = entity.w ?? TABLE_W;
   const g = svgEl('g', {
     class: 'gm-erd-table',
     'data-id': entity.id,
     transform: `translate(${entity.x},${entity.y})`,
   });
 
-  // Card background
-  g.appendChild(svgEl('rect', {
-    class: 'gm-erd-bg',
-    x: 0, y: 0, width: TABLE_W, height: h, rx: 10,
-  }));
+  // Card background (honoring any classDef/style fill & stroke override).
+  const bg = { class: 'gm-erd-bg', x: 0, y: 0, width: W, height: h, rx: 10 };
+  if (entity.style?.fill)   bg.fill = entity.style.fill;
+  if (entity.style?.stroke) bg.stroke = entity.style.stroke;
+  g.appendChild(svgEl('rect', bg));
 
   // Rounded header path (matches erd-viewer.html style): a rect whose top two
   // corners are rounded by radius `hr` while the bottom edge stays square so it
@@ -61,11 +85,11 @@ function buildTable(entity) {
   const hp = 1, hr = 9;
   g.appendChild(svgEl('path', {
     class: 'gm-erd-header',
-    d: `M${hp},${HEADER_H} L${hp},${1+hr} a${hr},${hr} 0 0 1 ${hr},${-hr} L${TABLE_W-hp-hr},1 a${hr},${hr} 0 0 1 ${hr},${hr} L${TABLE_W-hp},${HEADER_H} Z`,
+    d: `M${hp},${HEADER_H} L${hp},${1+hr} a${hr},${hr} 0 0 1 ${hr},${-hr} L${W-hp-hr},1 a${hr},${hr} 0 0 1 ${hr},${hr} L${W-hp},${HEADER_H} Z`,
   }));
 
   g.appendChild(svgEl('text', { class: 'gm-erd-title', x: 14, y: HEADER_H / 2 + 5 }, entity.name));
-  g.appendChild(svgEl('text', { class: 'gm-erd-tag', x: TABLE_W - 14, y: HEADER_H / 2 + 4, 'text-anchor': 'end' },
+  g.appendChild(svgEl('text', { class: 'gm-erd-tag', x: W - 14, y: HEADER_H / 2 + 4, 'text-anchor': 'end' },
     entity.columns.length + ' cols'));
 
   entity.columns.forEach((col, i) => {
@@ -73,14 +97,14 @@ function buildTable(entity) {
     const isKey = col.pk || col.fk;
     const row   = svgEl('g', { class: 'gm-erd-row' + (isKey ? ' is-key' : '') });
 
-    if (i > 0) row.appendChild(svgEl('line', { class: 'gm-erd-sep', x1: 0, y1: ry, x2: TABLE_W, y2: ry }));
+    if (i > 0) row.appendChild(svgEl('line', { class: 'gm-erd-sep', x1: 0, y1: ry, x2: W, y2: ry }));
 
     if (isKey) {
       row.appendChild(svgEl('path', { class: col.pk ? 'gm-key-pk' : 'gm-key-fk', d: keyIcon(13, ry + ROW_H / 2) }));
     }
 
     row.appendChild(svgEl('text', { class: 'gm-erd-col-name', x: isKey ? 30 : 14, y: ry + ROW_H / 2 + 4 }, col.name));
-    row.appendChild(svgEl('text', { class: 'gm-erd-col-type', x: TABLE_W - 14, y: ry + ROW_H / 2 + 4, 'text-anchor': 'end' }, col.type));
+    row.appendChild(svgEl('text', { class: 'gm-erd-col-type', x: W - 14, y: ry + ROW_H / 2 + 4, 'text-anchor': 'end' }, col.type));
 
     g.appendChild(row);
   });
@@ -144,10 +168,11 @@ function redrawRelationships(ast, edgeLayer, curved) {
       d = `M${sx},${ay} L${mx},${ay} L${mx},${by} L${ex},${by}`;
     }
 
-    g.appendChild(svgEl('path', { class: 'gm-edge', d }));
+    // Non-identifying relationships (`..`) use a dashed line.
+    g.appendChild(svgEl('path', { class: 'gm-edge', d, ...(rel.dashed ? { 'stroke-dasharray': '6,4' } : {}) }));
 
-    drawCardinality(g, ax, ay, aDir, rel.fromCard ?? 'one',  off);
-    drawCardinality(g, bx, by, bDir, rel.toCard   ?? 'many', off);
+    drawCardinality(g, ax, ay, aDir, rel.fromCard ?? 'one', off);
+    drawCardinality(g, bx, by, bDir, rel.toCard   ?? 'one', off);
 
     if (rel.label) {
       const mx = (sx + ex) / 2, my = (ay + by) / 2;
@@ -160,26 +185,38 @@ function redrawRelationships(ast, edgeLayer, curved) {
 }
 
 /**
- * Append crow's-foot cardinality marker lines at one endpoint of an edge.
+ * Append crow's-foot cardinality markers at one endpoint of an edge. The glyph
+ * nearest the entity shows the maximum (bar = one, crow's foot = many); the
+ * glyph nearest the line shows the minimum (bar = one, circle = zero/optional).
  * @param {SVGGElement} g - The edge group to append marker lines to.
  * @param {number} x - X of the table edge at this endpoint.
  * @param {number} y - Y (vertical center) at this endpoint.
  * @param {number} dir - +1 if the line extends rightward, -1 if leftward.
- * @param {'one'|'many'|string} card - Cardinality to depict.
+ * @param {'one'|'zero-or-one'|'one-or-more'|'zero-or-more'} card - Cardinality to depict.
  * @param {number} [off=10] - Gap distance between table edge and line.
  * @returns {void}
  */
 function drawCardinality(g, x, y, dir, card, off = 10) {
   const o = dir * off;
-  if (card === 'one') {
-    // "One": a single perpendicular tick plus the connecting stub.
-    g.appendChild(svgEl('line', { class: 'gm-edge-marker', x1: x+o*0.55, y1: y-7, x2: x+o*0.55, y2: y+7 }));
-    g.appendChild(svgEl('line', { class: 'gm-edge-marker', x1: x, y1: y, x2: x+o, y2: y }));
+  const mark = a => g.appendChild(svgEl('line', { class: 'gm-edge-marker', ...a }));
+  const bar  = t => mark({ x1: x + o * t, y1: y - 7, x2: x + o * t, y2: y + 7 });
+
+  mark({ x1: x, y1: y, x2: x + o, y2: y }); // connecting stub
+
+  // Maximum (nearest the entity): crow's foot for "many", a bar for "one".
+  if (card.includes('more')) {
+    const apex = x + o * 0.55;
+    mark({ x1: apex, y1: y, x2: x, y2: y - 8 });
+    mark({ x1: apex, y1: y, x2: x, y2: y });
+    mark({ x1: apex, y1: y, x2: x, y2: y + 8 });
   } else {
-    // "Many": a three-pronged crow's foot fanning from the line plus a tick.
-    g.appendChild(svgEl('line', { class: 'gm-edge-marker', x1: x+o, y1: y, x2: x, y2: y-8 }));
-    g.appendChild(svgEl('line', { class: 'gm-edge-marker', x1: x+o, y1: y, x2: x, y2: y }));
-    g.appendChild(svgEl('line', { class: 'gm-edge-marker', x1: x+o, y1: y, x2: x, y2: y+8 }));
-    g.appendChild(svgEl('line', { class: 'gm-edge-marker', x1: x+o*1.4, y1: y-7, x2: x+o*1.4, y2: y+7 }));
+    bar(0.45);
+  }
+
+  // Minimum (nearest the line): a hollow circle for "zero/optional", else a bar.
+  if (card.startsWith('zero')) {
+    g.appendChild(svgEl('circle', { class: 'gm-edge-marker', cx: x + o * 1.05, cy: y, r: 3.5, fill: 'var(--gm-bg)' }));
+  } else {
+    bar(1.0);
   }
 }

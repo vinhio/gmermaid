@@ -1,0 +1,25 @@
+block-beta
+  columns 5
+  src1[("Source DB")]
+  src2[["Event Stream"]]
+  space
+  ingest{"Ingest?"}
+  space
+  space:5
+  block:processing:5
+    columns 3
+    clean["Clean"]
+    enrich(["Enrich"])
+    validate{"Validate"}
+  end
+  space:5
+  warehouse[("Warehouse")]:2
+  space
+  dashboard["Dashboard"]:2
+  src1 --> ingest
+  src2 --> ingest
+  ingest --> processing
+  processing --> warehouse
+  warehouse --> dashboard
+  classDef store fill:#3a2d5c
+  class src1,warehouse store

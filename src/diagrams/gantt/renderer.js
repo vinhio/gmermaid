@@ -123,11 +123,12 @@ export function renderGantt(ast, nodeLayer, edgeLayer) {
     }, useLong ? fmtDateLong(ms) : fmtDate(ms)));
   }
 
+  const totalH = AXIS_H + sections.reduce((h, s) => h + SEC_H + s.tasks.length * ROW_H, 0);
+
   // Today line
   const now = Date.now();
   if (now >= minDate && now <= maxDate) {
     const todayX = LABEL_W + (now - minDate) / span * CHART_W;
-    const totalH = AXIS_H + sections.reduce((h, s) => h + SEC_H + s.tasks.length * ROW_H, 0);
     g.appendChild(svgEl('line', {
       class: 'gm-gantt-today',
       x1: todayX, y1: axisY, x2: todayX, y2: totalH,
@@ -136,6 +137,21 @@ export function renderGantt(ast, nodeLayer, edgeLayer) {
       'stroke-dasharray': '4,3',
       opacity: '0.7',
     }));
+  }
+
+  // Vertical markers (`vert`): a dashed line + optional label across the chart.
+  for (const marker of (ast.markers ?? [])) {
+    const mxv = LABEL_W + (marker.date - minDate) / span * CHART_W;
+    g.appendChild(svgEl('line', {
+      class: 'gm-gantt-vert', x1: mxv, y1: axisY, x2: mxv, y2: totalH,
+      stroke: 'oklch(0.6 0.18 30)', 'stroke-width': '1.5', 'stroke-dasharray': '2,3', opacity: '0.8',
+    }));
+    if (marker.label) {
+      g.appendChild(svgEl('text', {
+        class: 'gm-gantt-axis-label', x: mxv + 3, y: axisY + 10,
+        'text-anchor': 'start', fill: 'oklch(0.6 0.18 30)',
+      }, marker.label));
+    }
   }
 
   // Sections + tasks
@@ -187,17 +203,17 @@ export function renderGantt(ast, nodeLayer, edgeLayer) {
         'dominant-baseline': 'middle',
       }, task.label.length > 22 ? task.label.slice(0, 21) + '…' : task.label));
 
-      if (task.status === 'milestone') {
-        // Diamond shape
+      if (task.milestone) {
+        // Diamond at the midpoint (crit milestones are red, else accent).
         const mx = barX + barW / 2, my = barY + BAR_H / 2, ms2 = BAR_H / 2;
         g.appendChild(svgEl('path', {
           class: 'gm-gantt-bar',
           d: `M${mx},${my-ms2} L${mx+ms2},${my} L${mx},${my+ms2} L${mx-ms2},${my} Z`,
-          fill: 'var(--gm-accent)',
+          fill: task.crit ? 'oklch(0.6 0.18 30)' : 'var(--gm-accent)',
           stroke: 'none',
         }));
       } else {
-        // Regular bar
+        // Regular bar; `done` tasks are dimmed, `active` tasks get a hatch accent.
         g.appendChild(svgEl('rect', {
           class: 'gm-gantt-bar',
           x: barX, y: barY,
@@ -206,6 +222,7 @@ export function renderGantt(ast, nodeLayer, edgeLayer) {
           stroke: barStroke(task.status),
           'stroke-width': '1.5',
           rx: 4,
+          opacity: task.done ? '0.55' : '1',
         }));
 
         // In-bar label for wider bars
@@ -215,7 +232,7 @@ export function renderGantt(ast, nodeLayer, edgeLayer) {
             x: barX + barW / 2, y: barY + BAR_H / 2,
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
-            fill: task.status === 'active' ? 'var(--gm-bg)' : 'var(--gm-text)',
+            fill: task.status === 'active' || task.status === 'crit' ? 'var(--gm-bg)' : 'var(--gm-text)',
           }, task.label.length > 16 ? task.label.slice(0, 15) + '…' : task.label));
         }
       }

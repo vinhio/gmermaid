@@ -26,8 +26,10 @@ export function renderState(ast, nodeLayer, edgeLayer, interact, curved = true) 
   edgeLayer.replaceChildren();
 
   const allNodes = ast.states;
-  layoutFlowchart(allNodes, ast.transitions, 'TB');
-  expandComposites(allNodes, ast.transitions);
+  const dir = ast.direction || 'TB';
+  sizeStates(allNodes);                      // fit box sizes to content first
+  expandComposites(allNodes, dir);           // lay out composites (incl. regions)
+  layoutFlowchart(allNodes, ast.transitions, dir);
 
   const nodeEls = {};
   for (const state of allNodes) {
@@ -40,33 +42,66 @@ export function renderState(ast, nodeLayer, edgeLayer, interact, curved = true) 
 }
 
 /**
- * Lay out each composite state's children and size the container to fit them
- * (plus padding and a label band), then offset children to sit inside.
- * @param {Array<object>} states - All top-level states.
- * @param {Array<object>} transitions - Top-level transitions (unused here; child layout uses each composite's own transitions).
+ * Set each state's box size by kind (recursing into composites). Normal states
+ * grow to fit their label. Composite sizes are computed later in expandComposites.
+ * @param {Array<object>} states - States to size.
  * @returns {void}
  */
-function expandComposites(states, transitions) {
+function sizeStates(states) {
+  for (const s of states) {
+    switch (s.kind) {
+      case 'initial': s.w = 20; s.h = 20; break;
+      case 'final':   s.w = 28; s.h = 28; break;
+      case 'fork': case 'join': s.w = 90; s.h = 8; break;
+      case 'choice':  s.w = 34; s.h = 34; break;
+      case 'composite': if (s.children?.length) sizeStates(s.children); break;
+      default:        s.w = Math.max(120, Math.ceil((s.name || s.id).length * 8 + 30)); s.h = STATE_H;
+    }
+  }
+}
+
+/**
+ * Lay out each composite's children and size the container. Parallel regions
+ * (separated by `--`) are laid out independently and stacked with divider lines.
+ * @param {Array<object>} states - All top-level states.
+ * @param {string} dir - Diagram flow direction.
+ * @returns {void}
+ */
+function expandComposites(states, dir) {
+  const labelH = 28; // band reserved at the top for the composite's name
   for (const s of states) {
     if (s.kind !== 'composite' || !s.children?.length) continue;
-    const childTrans = s.transitions ?? [];
-    layoutFlowchart(s.children, childTrans, 'TB');
+    sizeStates(s.children);
+    expandComposites(s.children, s.direction || dir); // nested composites first
+    const cdir = s.direction || dir;
+    const childMap = new Map(s.children.map(c => [c.id, c]));
+    const innerTrans = s.transitions ?? [];
 
-    // Find the children's bounding extent to size the container.
-    let maxX = 0, maxY = 0;
-    for (const c of s.children) {
-      maxX = Math.max(maxX, c.x + (c.w ?? STATE_W));
-      maxY = Math.max(maxY, c.y + (c.h ?? STATE_H));
-    }
-
-    const labelH = 28; // band reserved at the top for the composite's name
-    s.w = maxX + COMP_PAD * 2;
-    s.h = maxY + COMP_PAD * 2 + labelH;
-
-    // Shift children down/right so they sit inside the padding and below the label.
-    for (const c of s.children) {
-      c.x += COMP_PAD;
-      c.y += COMP_PAD + labelH;
+    if (s.regions && s.regions.length > 1) {
+      // Stack each parallel region vertically, recording divider positions.
+      const dividers = [];
+      let offY = COMP_PAD + labelH, maxX = 0;
+      s.regions.forEach((ids, ri) => {
+        const rc = ids.map(id => childMap.get(id)).filter(Boolean);
+        if (!rc.length) return;
+        const rt = innerTrans.filter(t => ids.includes(t.from) && ids.includes(t.to));
+        layoutFlowchart(rc, rt, cdir);
+        const minX = Math.min(...rc.map(c => c.x)), minY = Math.min(...rc.map(c => c.y));
+        let rb = 0;
+        for (const c of rc) { c.x += COMP_PAD - minX; c.y += offY - minY; maxX = Math.max(maxX, c.x + c.w); rb = Math.max(rb, c.y + c.h); }
+        offY = rb + COMP_PAD;
+        if (ri < s.regions.length - 1) { dividers.push(offY); offY += COMP_PAD; }
+      });
+      s._dividers = dividers;
+      s.w = maxX + COMP_PAD;
+      s.h = offY;
+    } else {
+      layoutFlowchart(s.children, innerTrans, cdir);
+      let maxX = 0, maxY = 0;
+      for (const c of s.children) { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); }
+      s.w = maxX + COMP_PAD * 2;
+      s.h = maxY + COMP_PAD * 2 + labelH;
+      for (const c of s.children) { c.x += COMP_PAD; c.y += COMP_PAD + labelH; }
     }
   }
 }
@@ -88,50 +123,50 @@ function buildState(state, interact, onMove) {
 
   switch (state.kind) {
     case 'initial': {
-      state.w = 20; state.h = 20;
       g.appendChild(svgEl('circle', { class: 'gm-state-initial', cx: 10, cy: 10, r: 10 }));
       break;
     }
     case 'final': {
       // Final state: an outer ring with a filled inner dot (UML bullseye).
-      state.w = 28; state.h = 28;
       g.appendChild(svgEl('circle', { class: 'gm-state-final-ring', cx: 14, cy: 14, r: 13 }));
       g.appendChild(svgEl('circle', { class: 'gm-state-final-dot',  cx: 14, cy: 14, r: 8 }));
       break;
     }
     case 'fork':
     case 'join': {
-      state.w = 80; state.h = 6;
-      g.appendChild(svgEl('rect', { class: 'gm-state-fork', x: 0, y: 0, width: 80, height: 6, rx: 3 }));
+      g.appendChild(svgEl('rect', { class: 'gm-state-fork', x: 0, y: 0, width: state.w, height: state.h, rx: 3 }));
       break;
     }
     case 'choice': {
-      // Choice pseudo-state: a 30x30 diamond (decision point).
-      state.w = 30; state.h = 30;
-      g.appendChild(svgEl('polygon', { class: 'gm-state-choice', points: '15,0 30,15 15,30 0,15' }));
+      // Choice pseudo-state: a diamond (decision point).
+      const m = state.w / 2;
+      g.appendChild(svgEl('polygon', { class: 'gm-state-choice', points: `${m},0 ${state.w},${m} ${m},${state.w} 0,${m}` }));
       break;
     }
     case 'composite': {
       g.appendChild(svgEl('rect', {
         class: 'gm-state-composite-bg',
-        x: 0, y: 0, width: state.w ?? 200, height: state.h ?? 120, rx: 12,
+        x: 0, y: 0, width: state.w, height: state.h, rx: 12,
+        ...styleAttrs(state.style),
       }));
-      g.appendChild(svgEl('text', { class: 'gm-state-label', x: (state.w ?? 200) / 2, y: 20, 'text-anchor': 'middle' }, state.name));
-      // Render children inside
+      g.appendChild(svgEl('text', { class: 'gm-state-label', x: state.w / 2, y: 20, 'text-anchor': 'middle' }, state.name));
+      // Parallel-region divider lines.
+      for (const dy of (state._dividers ?? [])) {
+        g.appendChild(svgEl('line', { x1: 0, y1: dy, x2: state.w, y2: dy, stroke: 'var(--gm-muted)', 'stroke-width': 1, 'stroke-dasharray': '5,4' }));
+      }
+      // Render children inside (each draggable, positioned relative to composite).
       for (const child of (state.children ?? [])) {
         const cg = buildState(child, interact, onMove);
         g.appendChild(cg);
-        // Attach drag to child, positioned relative to composite
         interact.attachDrag(cg, child, onMove);
       }
       break;
     }
     default: {
-      state.w = state.w || STATE_W;
-      state.h = state.h || STATE_H;
       g.appendChild(svgEl('rect', {
         class: 'gm-state-bg',
         x: 0, y: 0, width: state.w, height: state.h, rx: 10,
+        ...styleAttrs(state.style),
       }));
       g.appendChild(svgEl('text', {
         class: 'gm-state-label',
@@ -141,11 +176,54 @@ function buildState(state, interact, onMove) {
     }
   }
 
+  // Note box, attached inside the group so it drags with the state.
+  if (state.note) g.appendChild(buildStateNote(state));
+
   // Composite drag is handled per-child above; the container itself is fixed.
   if (state.kind !== 'composite') {
     interact.attachDrag(g, state, onMove);
   }
 
+  return g;
+}
+
+/**
+ * Convert a parsed style object into fill/stroke SVG attributes.
+ * @param {object} [style] - Style map (e.g. { fill, stroke, 'stroke-width', color }).
+ * @returns {object} SVG attributes to spread onto a shape (empty when no style).
+ */
+function styleAttrs(style) {
+  if (!style) return {};
+  const a = {};
+  if (style.fill)   a.fill = style.fill;
+  if (style.stroke) a.stroke = style.stroke;
+  if (style['stroke-width']) a['stroke-width'] = style['stroke-width'];
+  return a;
+}
+
+/**
+ * Build a note box attached to a state (local coords), to its left or right,
+ * with a dotted connector. Supports multi-line text.
+ * @param {object} state - The state ({ note, noteSide, w, h }).
+ * @returns {SVGGElement} The note group.
+ */
+function buildStateNote(state) {
+  const lines = String(state.note).split('\n');
+  const nw = Math.max(80, ...lines.map(l => l.length * 6.4 + 16));
+  const nh = lines.length * 15 + 12;
+  const right = state.noteSide !== 'left';
+  const nx = right ? state.w + 32 : -nw - 32;
+  const ny = Math.max(0, (state.h - nh) / 2);
+
+  const g = svgEl('g', { class: 'gm-state-note' });
+  g.appendChild(svgEl('line', {
+    x1: right ? state.w : 0, y1: state.h / 2, x2: right ? nx : nx + nw, y2: ny + nh / 2,
+    stroke: 'var(--gm-pk)', 'stroke-width': 1, 'stroke-dasharray': '3,3',
+  }));
+  g.appendChild(svgEl('rect', { x: nx, y: ny, width: nw, height: nh, rx: 3, fill: 'var(--gm-header)', stroke: 'var(--gm-pk)', 'stroke-width': 1, 'stroke-dasharray': '3,2' }));
+  const t = svgEl('text', { x: nx + 8, y: ny + 15, fill: 'var(--gm-muted)', 'font-family': 'var(--gm-font)', 'font-size': 11, 'pointer-events': 'none' });
+  lines.forEach((ln, idx) => t.appendChild(svgEl('tspan', { x: nx + 8, dy: idx === 0 ? 0 : 15 }, ln)));
+  g.appendChild(t);
   return g;
 }
 

@@ -1,0 +1,226 @@
+<!doctype html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gMermaid — Sequence Diagram Samples</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../themes/dark.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0d1117; color: #e6edf3; font-family: 'Sora', sans-serif; }
+  #app { display: flex; height: 100vh; }
+
+  #sidebar { width: 260px; flex-shrink: 0; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; }
+  #sidebar header { padding: 14px 16px; border-bottom: 1px solid #30363d; }
+  .brand { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #3fb950; }
+  .sub { font-size: 11px; color: #8b949e; margin-top: 2px; }
+  .files { padding: 8px; display: flex; flex-direction: column; gap: 4px; overflow: auto; }
+  .file-btn {
+    text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: #1c2128; color: #c9d1d9; border: 1px solid #30363d;
+    border-radius: 6px; padding: 9px 11px; cursor: pointer; transition: .15s;
+  }
+  .file-btn:hover { border-color: #3fb950; color: #3fb950; }
+  .file-btn.active { background: rgba(63,185,80,.12); border-color: #3fb950; color: #3fb950; }
+  .file-btn small { display: block; color: #6e7681; font-family: 'Sora', sans-serif; font-size: 10px; margin-top: 3px; }
+
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #toolbar { padding: 8px 12px; border-bottom: 1px solid #30363d; display: flex; gap: 6px; align-items: center; }
+  .btn { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #1c2128; color: #e6edf3; border: 1px solid #30363d; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+  .btn:hover { border-color: #3fb950; color: #3fb950; }
+  #title { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8b949e; }
+  #canvas { flex: 1; position: relative; }
+  #diagram { width: 100%; height: 100%; }
+  #status { position: fixed; bottom: 12px; right: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e; background: rgba(22,27,34,.92); border: 1px solid #30363d; border-radius: 8px; padding: 5px 12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <header>
+      <div class="brand">gMermaid · samples</div>
+      <div class="sub">Complex sequence diagrams</div>
+    </header>
+    <div class="files" id="files"></div>
+  </div>
+  <div id="main">
+    <div id="toolbar">
+      <button class="btn" id="btnFit">⤢ Fit</button>
+      <button class="btn" id="btnZoomIn">+</button>
+      <button class="btn" id="btnZoomOut">−</button>
+      <button class="btn" id="btnSvg">↧ SVG</button>
+      <span id="title"></span>
+    </div>
+    <div id="canvas"><div id="diagram"></div></div>
+  </div>
+</div>
+<div id="status">Loading…</div>
+
+<script type="module">
+import { GMermaid } from '../src/index.js';
+
+// Sample catalog grouped by diagram type — each exercises a different feature mix.
+const GROUPS = [
+  { type: 'Sequence', samples: [
+    { file: 'sequence-oauth-pkce.mmd',         title: 'OAuth 2.0 + PKCE',   note: 'boxes · autonumber · nested activation · alt/opt · rect' },
+    { file: 'sequence-saga-orchestration.mmd', title: 'Saga Orchestration', note: 'par/and · critical/option · rect commit/rollback' },
+    { file: 'sequence-realtime-chat.mmd',      title: 'Realtime Chat',      note: 'create/destroy · async -) · bidirectional · loop' },
+    { file: 'sequence-cicd-pipeline.mmd',      title: 'CI/CD Pipeline',     note: 'break · critical w/ 3 options · transparent box' },
+  ]},
+  { type: 'Class', samples: [
+    { file: 'class-ecommerce-domain.mmd',      title: 'E-commerce Domain',  note: 'interface/enum · multiplicity · composition · realization' },
+    { file: 'class-shapes-generics.mmd',       title: 'Shapes + Generics',  note: 'abstract · ~generics~ · static$ · dependency · notes' },
+    { file: 'class-hexagonal-namespaces.mmd',  title: 'Hexagonal Arch.',    note: 'namespaces · ports/adapters · interfaces · notes' },
+  ]},
+  { type: 'Flowchart', samples: [
+    { file: 'flowchart-cicd-pipeline.mmd',     title: 'CI/CD Pipeline',     note: 'subgraphs · thick/dotted · many shapes · classDef' },
+    { file: 'flowchart-request-lifecycle.mmd', title: 'Request Lifecycle',  note: 'circle/cross heads · cache hit/miss · :::class' },
+    { file: 'flowchart-order-state.mmd',       title: 'Order State Machine', note: '& fan-out · bidirectional · trapezoid/parallelogram' },
+  ]},
+  { type: 'State', samples: [
+    { file: 'state-order-lifecycle.mmd',       title: 'Order Lifecycle',    note: 'composite · <<choice>> · note · classDef · direction' },
+    { file: 'state-keyboard-concurrent.mmd',   title: 'Concurrent Regions', note: 'parallel -- regions · multi-line note · [*]' },
+    { file: 'state-job-fork-join.mmd',         title: 'Fork / Join',        note: '<<fork>>/<<join>> · nested composite · choice' },
+  ]},
+  { type: 'ERD', samples: [
+    { file: 'erd-ecommerce.mmd',               title: 'E-commerce Schema',  note: 'all cardinalities · non-identifying · self-ref · keys' },
+    { file: 'erd-hospital.mmd',                title: 'Hospital Records',   note: 'aliases p[Patient] · classDef · combined keys' },
+    { file: 'erd-blog-cms.mmd',                title: 'Blog CMS',           note: 'M:N · threaded self-ref · UK · revisions (..)' },
+  ]},
+  { type: 'Journey', samples: [
+    { file: 'journey-saas-onboarding.mmd',     title: 'SaaS Onboarding',    note: '4 sections · 5 actors · scores 1–5 · legend' },
+    { file: 'journey-ecommerce-purchase.mmd',  title: 'Purchase Journey',   note: 'multi-actor tasks · per-actor colors' },
+    { file: 'journey-patient-visit.mmd',       title: 'Clinic Visit',       note: '5 actors · pre-section task · satisfaction line' },
+  ]},
+  { type: 'Gantt', samples: [
+    { file: 'gantt-ecommerce-release.mmd',     title: 'E-commerce Release', note: 'done/active/crit · milestones · after-deps · vert' },
+    { file: 'gantt-mobile-launch.mmd',         title: 'Mobile Launch',      note: 'until · multi-after · parallel tracks · vert id' },
+    { file: 'gantt-research-roadmap.mmd',      title: 'Research Roadmap',   note: 'month durations · milestones · long span' },
+  ]},
+  { type: 'Pie', samples: [
+    { file: 'pie-cloud-spend.mmd',             title: 'Cloud Spend',        note: 'showData · 8 slices · decimal values' },
+    { file: 'pie-browser-share.mmd',           title: 'Browser Share',      note: 'percentages only (no showData) · sums to 100' },
+    { file: 'pie-survey-results.mmd',          title: 'Dev Week',           note: 'showData · fractional hours' },
+  ]},
+  { type: 'Quadrant', samples: [
+    { file: 'quadrant-tech-radar.mmd',         title: 'Tech Radar',         note: 'classDef + :::class · inline radius/color/stroke' },
+    { file: 'quadrant-feature-priority.mmd',   title: 'Feature Priority',   note: 'effort vs impact · two classes (win/risk)' },
+    { file: 'quadrant-eisenhower.mmd',         title: 'Eisenhower Matrix',  note: '10 points · urgent class · all 4 quadrants' },
+  ]},
+  { type: 'Requirement', samples: [
+    { file: 'requirement-vehicle-safety.mmd',  title: 'Vehicle Safety',     note: 'all req types · 7 rel types · reverse rel · classDef' },
+    { file: 'requirement-payment-pci.mmd',     title: 'PCI Compliance',     note: 'direction LR · risk/verify · contains/derives/refines' },
+    { file: 'requirement-medical-pump.mmd',    title: 'Medical Pump',       note: 'physical req · all 7 rel types · reverse verify' },
+  ]},
+  { type: 'C4', samples: [
+    { file: 'c4-context-banking.mmd',          title: 'Context: Banking',   note: 'Enterprise_Boundary · _Ext/Queue · Rel_Back' },
+    { file: 'c4-container-banking.mmd',        title: 'Container: Banking', note: 'System_Boundary · ContainerDb/Queue · tech + rels' },
+    { file: 'c4-deployment-banking.mmd',       title: 'Deployment',         note: 'nested Deployment_Node (3 levels) · Db/Queue' },
+  ]},
+  { type: 'Mindmap', samples: [
+    { file: 'mindmap-product-strategy.mmd',    title: 'Product Strategy',   note: 'all shapes · :::class · ::icon · id prefixes' },
+    { file: 'mindmap-software-architecture.mmd', title: 'System Design',    note: 'circle/hex/cloud/bang · classes · 3 levels' },
+    { file: 'mindmap-learning-path.mmd',       title: 'Learning Path',      note: 'bang/cloud/hex shapes · icon · deep nesting' },
+  ]},
+  { type: 'Timeline', samples: [
+    { file: 'timeline-company-history.mmd',    title: 'Company History',    note: 'sections · multi-event lines · continuation · <br>' },
+    { file: 'timeline-product-roadmap.mmd',    title: 'Product Roadmap',    note: 'shipped/in-progress/planned · multi-event' },
+    { file: 'timeline-internet-history.mmd',   title: 'History of the Web', note: '3 events on one line · <br> events' },
+  ]},
+  { type: 'Sankey', samples: [
+    { file: 'sankey-energy-flow.mmd',          title: 'Energy Flow',        note: 'multi-stage · 20 flows · shared intermediate node' },
+    { file: 'sankey-company-budget.mmd',       title: 'Budget Waterfall',   note: 'quoted commas · &amp; in labels · P&amp;L flow' },
+    { file: 'sankey-website-funnel.mmd',       title: 'Conversion Funnel',  note: 'quoted comma source · 4-stage funnel' },
+  ]},
+  { type: 'XY Chart', samples: [
+    { file: 'xychart-revenue-quarters.mmd',    title: 'Revenue vs Target',  note: 'two bar series + line · x-axis title · ranged y' },
+    { file: 'xychart-temperature.mmd',         title: 'Temperature',        note: 'negative values · quoted months · bar + line' },
+    { file: 'xychart-website-traffic.mmd',     title: 'Weekly Users',       note: 'auto-ranged y-axis · decimals · bar + line' },
+  ]},
+  { type: 'Block', samples: [
+    { file: 'block-system-architecture.mmd',   title: 'System Architecture', note: 'nested block:N · spans · space:N · shapes · style' },
+    { file: 'block-data-pipeline.mmd',         title: 'Data Pipeline',       note: 'columns 5 · nested grid · cylinder/subroutine · classDef' },
+    { file: 'block-decision-flow.mmd',         title: 'Decision Flow',       note: 'rhombus/stadium/double-circle · labeled & cross edges' },
+    { file: 'block-event-pipeline.mmd',        title: 'Event Pipeline',      note: 'block-arrows (right + x double-head) · spanned arrow' },
+    { file: 'block-network-topology.mmd',      title: 'Network Topology',    note: 'block-arrow (down) · circles · nested DMZ/internal' },
+  ]},
+  { type: 'Packet', samples: [
+    { file: 'packet-tcp-header.mmd',           title: 'TCP Header',          note: 'title · single-bit flags · ranges · 256-bit wrap' },
+    { file: 'packet-ipv4-header.mmd',          title: 'IPv4 Header',         note: 'all +N bit-count syntax · 6 rows' },
+    { file: 'packet-udp-datagram.mmd',         title: 'UDP Datagram',        note: 'mixed ranges + +N · payload wrap' },
+  ]},
+  { type: 'Kanban', samples: [
+    { file: 'kanban-sprint-board.mmd',         title: 'Sprint Board',        note: '5 columns · ticket/priority/assigned · all priorities' },
+    { file: 'kanban-content-pipeline.mmd',     title: 'Content Pipeline',    note: 'plain-text card · assignee chips · mixed metadata' },
+    { file: 'kanban-bug-triage.mmd',           title: 'Bug Triage',          note: 'Very High→Very Low priorities · tickets' },
+  ]},
+  { type: 'Architecture', samples: [
+    { file: 'architecture-cloud-deployment.mmd', title: 'Cloud Deployment',  note: '3-level nested groups (VPC/subnets) · port arrows' },
+    { file: 'architecture-microservices.mmd',    title: 'Microservices',     note: 'edge/services/data groups · queue icon · fan-out' },
+    { file: 'architecture-data-platform.mmd',    title: 'Data Platform',     note: 'junction · {group} edge · bidirectional <-->'},
+  ]},
+  { type: 'Git', samples: [
+    { file: 'git-gitflow.mmd',                   title: 'GitFlow',           note: 'develop/feature/hotfix · merge type/tag · cherry-pick' },
+    { file: 'git-release-train.mmd',             title: 'Release Train',     note: 'LR · release branches · order · cherry-pick' },
+    { file: 'git-trunk-based.mmd',               title: 'Trunk-Based',       note: 'HIGHLIGHT/REVERSE commits · cherry-pick parent' },
+  ]},
+];
+
+const filesEl  = document.getElementById('files');
+const titleEl  = document.getElementById('title');
+const statusEl = document.getElementById('status');
+let diagram = null;
+let firstBtn = null;
+
+// Build the sidebar list, grouped by diagram type.
+for (const group of GROUPS) {
+  const h = document.createElement('div');
+  h.textContent = group.type;
+  h.style.cssText = 'font-family:JetBrains Mono,monospace;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6e7681;padding:8px 4px 2px;';
+  filesEl.appendChild(h);
+  for (const s of group.samples) {
+    const b = document.createElement('button');
+    b.className = 'file-btn';
+    b.innerHTML = `${s.title}<small>${s.note}</small>`;
+    b.onclick = () => { setActive(b); load(s); };
+    filesEl.appendChild(b);
+    if (!firstBtn) { firstBtn = b; b.classList.add('active'); }
+  }
+}
+
+function setActive(btn) {
+  document.querySelectorAll('.file-btn').forEach(x => x.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function load(sample) {
+  statusEl.textContent = `Loading ${sample.file}…`;
+  try {
+    const res = await fetch(sample.file);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const src = await res.text();
+    if (diagram) diagram.destroy();
+    document.getElementById('diagram').innerHTML = '';
+    diagram = GMermaid.create(document.getElementById('diagram'), { source: src, theme: 'dark' });
+    titleEl.textContent = sample.file;
+    statusEl.textContent = `${sample.title} · drag to pan · scroll to zoom`;
+  } catch (err) {
+    statusEl.textContent = '⚠ ' + err.message + ' — serve over http (make serve)';
+    console.error(err);
+  }
+}
+
+document.getElementById('btnFit').onclick     = () => diagram?.fitToContent();
+document.getElementById('btnZoomIn').onclick  = () => diagram?.zoomIn();
+document.getElementById('btnZoomOut').onclick = () => diagram?.zoomOut();
+document.getElementById('btnSvg').onclick = () => {
+  if (!diagram) return;
+  const blob = new Blob([diagram.exportSVG({ inline: true })], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'sequence.svg'; a.click();
+};
+
+load(GROUPS[0].samples[0]);
+</script>
+</body>
+</html>

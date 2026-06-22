@@ -1,0 +1,23 @@
+flowchart LR
+    Client([Client]) -->|HTTPS| LB{{Load Balancer}}
+    LB --> Gateway
+
+    subgraph backend [Backend Service]
+        direction TB
+        Gateway[API Gateway] --> AuthZ{Authorized?}
+        AuthZ -->|no| Deny[/401 Unauthorized/]
+        AuthZ -->|yes| Handler[Request Handler]
+        Handler --o Cache[(Redis Cache)]
+        Handler --> DB[(Postgres)]
+    end
+
+    Cache -.->|cache hit| Resp[Build Response]
+    DB ==>|cache miss| Resp
+    Deny --> Resp
+    Resp --> Log[[Audit Log]]
+    Log --> Client
+
+    Metrics[("Metrics<br>Pipeline")] x--x Handler
+
+    classDef warn fill:#9e6a03,stroke:#ffffff,color:#ffffff
+    class Deny warn

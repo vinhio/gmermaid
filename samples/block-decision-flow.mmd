@@ -1,0 +1,21 @@
+block-beta
+  columns 3
+  start(["Start"])
+  space
+  input["Read Input"]
+  space:3
+  check{"Valid?"}:3
+  space:3
+  ok["Process"]
+  space
+  err>"Error"]
+  space:3
+  done((("Done")))
+  start --> input
+  input --> check
+  check -- "yes" --> ok
+  check -- "no" --> err
+  ok --> done
+  err --x input
+  style err fill:#7a1f1f,color:#ffffff
+  style done fill:#1a6b2e,color:#ffffff

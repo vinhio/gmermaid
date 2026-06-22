@@ -1,0 +1,21 @@
+architecture-beta
+    group cloud(cloud)[AWS Cloud]
+    group vpc(internet)[VPC] in cloud
+    group public_subnet(server)[Public Subnet] in vpc
+    group private_subnet(database)[Private Subnet] in vpc
+
+    service users(internet)[Users]
+    service alb(server)[Load Balancer] in public_subnet
+    service web1(server)[Web 1] in public_subnet
+    service web2(server)[Web 2] in public_subnet
+    service app(server)[App Server] in private_subnet
+    service db(database)[Database] in private_subnet
+    service cache(database)[Redis] in private_subnet
+
+    users:R --> L:alb
+    alb:R --> L:web1
+    alb:R --> L:web2
+    web1:B --> T:app
+    web2:B --> T:app
+    app:R --> L:db
+    app:B --> T:cache

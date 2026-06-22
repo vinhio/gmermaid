@@ -69,6 +69,18 @@ export function renderGit(ast, nodeLayer, edgeLayer) {
       }));
     }
   }
+  // Cherry-pick: dashed link from the new commit back to its source commit.
+  for (const commit of commits) {
+    if (!commit.cherryFrom) continue;
+    const src = commitMap.get(commit.cherryFrom);
+    if (!src) continue;
+    const from = commitPos(src), to = commitPos(commit);
+    const mx = (from.x + to.x) / 2;
+    edgeG.appendChild(svgEl('path', {
+      class: 'gm-git-cherry', d: `M${from.x},${from.y} C${mx},${from.y} ${mx},${to.y} ${to.x},${to.y}`,
+      stroke: 'var(--gm-muted)', 'stroke-width': '1.5', fill: 'none', 'stroke-dasharray': '4,3', opacity: '0.7',
+    }));
+  }
   edgeLayer.appendChild(edgeG);
 
   // Branch name labels on left
@@ -114,15 +126,24 @@ export function renderGit(ast, nodeLayer, edgeLayer) {
       }));
     }
 
-    // Main circle
-    const circle = svgEl('circle', {
-      class: `gm-git-node${commit.type === 'HIGHLIGHT' ? ' gm-git-node-hi' : ''}`,
-      cx: x, cy: y, r: 10,
-      fill: commit.type === 'REVERSE' ? 'var(--gm-bg)' : color,
-      stroke: color,
-      'stroke-width': commit.type === 'REVERSE' ? '3' : '2',
-    });
-    nodeLayer.appendChild(circle);
+    // Commit glyph by type/merge: HIGHLIGHT → filled square; REVERSE → crossed
+    // circle; merge → double circle; NORMAL → filled circle.
+    if (commit.type === 'HIGHLIGHT') {
+      nodeLayer.appendChild(svgEl('rect', { class: 'gm-git-node gm-git-node-hi', x: x - 9, y: y - 9, width: 18, height: 18, rx: 2, fill: color, stroke: color, 'stroke-width': 2 }));
+    } else {
+      nodeLayer.appendChild(svgEl('circle', {
+        class: 'gm-git-node', cx: x, cy: y, r: 10,
+        fill: commit.type === 'REVERSE' ? 'var(--gm-bg)' : color,
+        stroke: color, 'stroke-width': commit.type === 'REVERSE' ? '3' : '2',
+      }));
+      if (commit.isMerge) {
+        nodeLayer.appendChild(svgEl('circle', { cx: x, cy: y, r: 5, fill: 'var(--gm-bg)', stroke: color, 'stroke-width': 2 }));
+      }
+      if (commit.type === 'REVERSE') {
+        nodeLayer.appendChild(svgEl('line', { x1: x - 5, y1: y - 5, x2: x + 5, y2: y + 5, stroke: color, 'stroke-width': 2 }));
+        nodeLayer.appendChild(svgEl('line', { x1: x + 5, y1: y - 5, x2: x - 5, y2: y + 5, stroke: color, 'stroke-width': 2 }));
+      }
+    }
 
     // Tag badge
     if (commit.tag) {

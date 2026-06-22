@@ -30,7 +30,7 @@ function pieSlicePath(cx, cy, r, sa, ea) {
 /**
  * Render a PieAST into the node layer as wedges, in-slice percentage labels,
  * and a legend. Clears both layers first; the edge layer is unused for pies.
- * @param {{title: string, slices: Array<{label: string, value: number}>}} ast - PieAST from {@link parsePie}.
+ * @param {{title: string, showData: boolean, slices: Array<{label: string, value: number}>}} ast - PieAST from {@link parsePie}.
  * @param {SVGElement} nodeLayer - Layer that receives the pie geometry.
  * @param {SVGElement} edgeLayer - Edge layer (cleared but unused here).
  * @returns {void}
@@ -39,7 +39,7 @@ export function renderPie(ast, nodeLayer, edgeLayer) {
   nodeLayer.replaceChildren();
   edgeLayer.replaceChildren();
 
-  const { title, slices } = ast;
+  const { title, showData, slices } = ast;
   if (!slices.length) return;
 
   const total = slices.reduce((s, p) => s + p.value, 0);
@@ -106,12 +106,23 @@ export function renderPie(ast, nodeLayer, edgeLayer) {
       fill: color,
       rx: 2,
     }));
+    // Default legend shows just the label; `showData` appends the actual value.
     g.appendChild(svgEl('text', {
       class: 'gm-pie-legend-text',
       x: legX + 16, y: ry + 1,
       'dominant-baseline': 'middle',
-    }, `${slice.label} (${slice.value})`));
+    }, showData ? `${slice.label}: ${fmtValue(slice.value)}` : slice.label));
   });
 
   nodeLayer.appendChild(g);
+}
+
+/**
+ * Format a slice value for display: integers as-is, otherwise up to two decimals
+ * with trailing zeros trimmed.
+ * @param {number} v - The slice value.
+ * @returns {string} The formatted value.
+ */
+function fmtValue(v) {
+  return Number.isInteger(v) ? String(v) : parseFloat(v.toFixed(2)).toString();
 }

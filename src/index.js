@@ -16,7 +16,7 @@ import { Theme }             from './core/theme.js';
 import { Interact }          from './core/interact.js';
 import { Renderer }          from './core/renderer.js';
 import { History }           from './core/history.js';
-import { layoutFlowchart, layoutGrid } from './core/layout.js';
+import { layoutFlowchart, layoutFlowchartClustered, layoutGrid } from './core/layout.js';
 import { VirtualRenderer }   from './core/virtual.js';
 import { parseFlowchart }    from './diagrams/flowchart/parser.js';
 import { renderFlowchart }   from './diagrams/flowchart/renderer.js';
@@ -85,7 +85,7 @@ export function detectType(text) {
   if (/^xychart-beta\b/i.test(first))      return 'xychart';
   if (/^architecture-beta\b/i.test(first)) return 'architecture';
   if (/^kanban\b/i.test(first))            return 'kanban';
-  if (/^packet-beta\b/i.test(first))       return 'packet';
+  if (/^packet(-beta)?\b/i.test(first))    return 'packet';
   return 'unknown';
 }
 
@@ -283,8 +283,13 @@ class Diagram {
     const autoNodes = nodes.filter(n => !this.#layout[n.id]);
     if (autoNodes.length) {
       switch (this.#ast.type) {
-        case 'flowchart': layoutFlowchart(autoNodes, this.#ast.edges ?? [], this.#ast.direction); break;
-        case 'class':     layoutFlowchart(autoNodes, this.#ast.relationships ?? [], 'TB'); break;
+        case 'flowchart':
+          // Subgraphs need cluster-aware layout over ALL nodes; otherwise the
+          // plain layered layout suffices for the auto-positioned nodes.
+          if (this.#ast.subgraphs?.length) layoutFlowchartClustered(this.#ast.nodes, this.#ast.edges ?? [], this.#ast.subgraphs, this.#ast.direction);
+          else layoutFlowchart(autoNodes, this.#ast.edges ?? [], this.#ast.direction);
+          break;
+        case 'class':     /* class layout (incl. namespaces) is handled in renderClass */ break;
         case 'state':     /* handled inside renderState */ break;
         default:          layoutGrid(autoNodes); break;
       }
@@ -355,19 +360,28 @@ class Diagram {
     if (fit && this.#firstRender) {
       this.#firstRender = false;
       if (nodes.length) setTimeout(() => this.fitToContent(), 60);
-      else setTimeout(() => this.#fitSequence(), 60);
+      else setTimeout(() => this.#fitContent(), 60);
     }
   }
 
   /**
-   * Fit the view for node-less diagrams (e.g. sequence) by measuring the
-   * rendered viewport's bounding box instead of node coordinates.
+   * Fit the view for node-less diagrams (sequence, pie, gantt, …) by measuring
+   * the union bounding box of the rendered content layers. The viewport's own
+   * bbox can't be used because it includes the large grid-background rect.
    * @returns {void}
    */
-  #fitSequence() {
-    const bbox = this.#renderer.viewport.getBBox?.();
-    if (!bbox) return;
-    this.#interact.fitToContent([{ x: bbox.x, y: bbox.y, w: bbox.width, h: bbox.height }]);
+  #fitContent() {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const layer of [this.#renderer.nodeLayer, this.#renderer.edgeLayer]) {
+      if (!layer?.childNodes.length) continue;
+      let b;
+      try { b = layer.getBBox(); } catch { continue; }
+      if (!b || (!b.width && !b.height)) continue;
+      minX = Math.min(minX, b.x);          minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.width); maxY = Math.max(maxY, b.y + b.height);
+    }
+    if (!Number.isFinite(minX)) return;
+    this.#interact.fitToContent([{ x: minX, y: minY, w: maxX - minX, h: maxY - minY }]);
   }
 
   // ── Public API ────────────────────────────────────────────────────
@@ -436,7 +450,7 @@ class Diagram {
   fitToContent() {
     const nodes = getNodes(this.#ast ?? {});
     if (nodes.length) this.#interact.fitToContent(nodes);
-    else this.#fitSequence();
+    else this.#fitContent();
   }
 
   /** Zoom in, centred on the stage. @returns {void} */

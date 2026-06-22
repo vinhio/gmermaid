@@ -1,0 +1,26 @@
+mindmap
+  root((System Design))
+    Frontend
+      web(React SPA)
+      mobile(React Native)
+      ds[Design System]
+    Backend
+      gw{{API Gateway}}
+      Services
+        auth[Auth]::icon(fa fa-lock)
+        payments[Payments]:::critical
+        Notifications
+      Data
+        db((PostgreSQL))
+        cache((Redis))
+        bus)Event Bus(
+    Infrastructure
+      Kubernetes
+      Observability
+        Metrics
+        Logs
+        Tracing
+    Cross-cutting
+      security[Security]:::critical
+      CI/CD
+      Cost

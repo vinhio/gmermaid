@@ -31,6 +31,12 @@ export function renderJourney(ast, nodeLayer, edgeLayer) {
   const totalTasks = sections.reduce((s, sec) => s + sec.tasks.length, 0);
   const totalW = PAD_LEFT + totalTasks * TASK_W + 40;
 
+  // Map every distinct actor (first-seen order) to its own colour — the journey's
+  // defining feature is that each actor has a consistent colour across all tasks.
+  const actorColor = buildActorColors(sections);
+  // Vertical room reserved below the chart for the per-task actor dots.
+  const maxActors = Math.max(1, ...sections.flatMap(s => s.tasks.map(t => t.actors.length)));
+
   const g = svgEl('g');
 
   // Title
@@ -43,6 +49,8 @@ export function renderJourney(ast, nodeLayer, edgeLayer) {
     }, title));
   }
 
+  // Point per task (top of its bar) — collected to draw the satisfaction line.
+  const linePts = [];
   let taskX = PAD_LEFT;
 
   for (let si = 0; si < sections.length; si++) {
@@ -79,6 +87,9 @@ export function renderJourney(ast, nodeLayer, edgeLayer) {
       const by     = CHART_BTM - bh;
       const color  = SCORE_COLOR[task.score] ?? SCORE_COLOR[3];
 
+      const cx = taskX + TASK_W / 2;
+      linePts.push(`${cx},${by}`);
+
       // Bar
       g.appendChild(svgEl('rect', {
         class: 'gm-journey-bar',
@@ -91,7 +102,7 @@ export function renderJourney(ast, nodeLayer, edgeLayer) {
       // Score badge
       g.appendChild(svgEl('text', {
         class: 'gm-journey-score',
-        x: taskX + TASK_W / 2, y: by - 8,
+        x: cx, y: by - 8,
         'text-anchor': 'middle',
         'dominant-baseline': 'middle',
       }, String(task.score)));
@@ -100,20 +111,20 @@ export function renderJourney(ast, nodeLayer, edgeLayer) {
       const label = task.name.length > 13 ? task.name.slice(0, 12) + '…' : task.name;
       g.appendChild(svgEl('text', {
         class: 'gm-journey-task',
-        x: taskX + TASK_W / 2, y: CHART_BTM + 16,
+        x: cx, y: CHART_BTM + 16,
         'text-anchor': 'middle',
         'dominant-baseline': 'middle',
       }, label));
 
-      // Actors
-      for (let ai = 0; ai < task.actors.length; ai++) {
-        g.appendChild(svgEl('text', {
-          class: 'gm-journey-actor',
-          x: taskX + TASK_W / 2, y: CHART_BTM + 30 + ai * 14,
-          'text-anchor': 'middle',
-          'dominant-baseline': 'middle',
-        }, task.actors[ai]));
-      }
+      // Actor dots — one colour-coded circle per actor on this task, centered.
+      const n = task.actors.length;
+      task.actors.forEach((actor, ai) => {
+        g.appendChild(svgEl('circle', {
+          class: 'gm-journey-actor-dot',
+          cx: cx + (ai - (n - 1) / 2) * 16, cy: CHART_BTM + 34, r: 6,
+          fill: actorColor.get(actor), stroke: 'var(--gm-bg)', 'stroke-width': 1.5,
+        }));
+      });
 
       taskX += TASK_W;
     }
@@ -127,5 +138,37 @@ export function renderJourney(ast, nodeLayer, edgeLayer) {
     'stroke-width': '1',
   }));
 
+  // Satisfaction line connecting consecutive task scores (the "journey").
+  if (linePts.length > 1) {
+    g.appendChild(svgEl('polyline', {
+      class: 'gm-journey-line', points: linePts.join(' '),
+      fill: 'none', stroke: 'var(--gm-muted)', 'stroke-width': 1.5, 'stroke-dasharray': '4,3', opacity: 0.8,
+    }));
+  }
+
+  // Actor legend: a colour chip + name per distinct actor, below the dots.
+  const legendY = CHART_BTM + 34 + (maxActors > 0 ? 24 : 0);
+  let lx = PAD_LEFT;
+  for (const [actor, col] of actorColor) {
+    g.appendChild(svgEl('circle', { cx: lx + 6, cy: legendY, r: 6, fill: col, stroke: 'var(--gm-bg)', 'stroke-width': 1.5 }));
+    const t = svgEl('text', { class: 'gm-journey-actor', x: lx + 18, y: legendY + 4 }, actor);
+    g.appendChild(t);
+    lx += 30 + actor.length * 7;
+  }
+
   nodeLayer.appendChild(g);
+}
+
+/**
+ * Assign each distinct actor (first-seen order across all tasks) a unique colour
+ * by spreading hues evenly, so the same actor is the same colour everywhere.
+ * @param {Array<{tasks: Array<{actors: string[]}>}>} sections - Journey sections.
+ * @returns {Map<string, string>} Actor name -> CSS colour.
+ */
+function buildActorColors(sections) {
+  const actors = [];
+  for (const sec of sections) for (const t of sec.tasks) for (const a of t.actors) if (!actors.includes(a)) actors.push(a);
+  const map = new Map();
+  actors.forEach((a, i) => map.set(a, `oklch(0.66 0.17 ${Math.round((360 / Math.max(1, actors.length)) * i)})`));
+  return map;
 }

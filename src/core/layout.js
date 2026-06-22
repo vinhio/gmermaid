@@ -77,24 +77,99 @@ export function layoutFlowchart(nodes, edges, direction = 'TB') {
   }
 
   // Horizontal flow places layers along x and members along y; vertical flow
-  // (the default) does the opposite.
+  // (the default) does the opposite. Spacing accumulates by each node's actual
+  // size so variable-width nodes never overlap.
   const isLR = direction === 'LR' || direction === 'RL';
+  let mainOff = 40; // offset along the flow axis (advances per layer)
 
-  layers.forEach((ids, layerIdx) => {
-    ids.forEach((id, posIdx) => {
+  layers.forEach(ids => {
+    let crossOff = 40; // offset across the flow axis (advances per node in layer)
+    let layerMain = 0; // largest node extent along the flow axis in this layer
+    for (const id of ids) {
       const n = nodeMap.get(id);
-      if (!n) return;
+      if (!n) continue;
+      const w = n.w || NODE_W, h = n.h || NODE_H;
       if (isLR) {
-        n.x = 40 + layerIdx * (NODE_W + H_GAP);
-        n.y = 40 + posIdx  * (NODE_H + V_GAP);
+        n.x = mainOff;  n.y = crossOff;
+        crossOff += h + V_GAP; layerMain = Math.max(layerMain, w);
       } else {
-        n.x = 40 + posIdx  * (NODE_W + H_GAP);
-        n.y = 40 + layerIdx * (NODE_H + V_GAP);
+        n.x = crossOff; n.y = mainOff;
+        crossOff += w + H_GAP; layerMain = Math.max(layerMain, h);
       }
-      n.w = n.w ?? NODE_W;
-      n.h = n.h ?? NODE_H;
-    });
+      n.w = w; n.h = h;
+    }
+    mainOff += layerMain + (isLR ? H_GAP : V_GAP);
   });
+}
+
+/**
+ * Cluster-aware flowchart layout: each top-level subgraph is laid out
+ * internally, then treated as a single super-node in an outer layered layout
+ * (alongside free nodes), so members stay grouped and clusters don't overlap.
+ * Sets node x/y and each subgraph's box geometry (x/y/w/h).
+ * @param {Array<object>} nodes - All flowchart nodes (with w/h set).
+ * @param {Array<{from: string, to: string}>} edges - All edges.
+ * @param {Array<{id: string, nodes: string[], direction: string|null, x?: number, y?: number, w?: number, h?: number}>} subgraphs - Parsed subgraphs.
+ * @param {string} [direction='TB'] - Flow direction.
+ * @returns {void}
+ */
+export function layoutFlowchartClustered(nodes, edges, subgraphs, direction = 'TB') {
+  const PAD = 24, LABEL = 26;
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+  // Only top-level subgraphs form clusters (a nested one is a subset of another).
+  const isSubset = (a, b) => a.nodes.length < b.nodes.length && a.nodes.every(id => b.nodes.includes(id));
+  const topLevel = subgraphs.filter(sg => !subgraphs.some(o => o !== sg && isSubset(sg, o)));
+
+  const clusterOf = new Map(); // node id -> its top-level subgraph
+  for (const sg of topLevel) for (const id of sg.nodes) if (nodeMap.has(id) && !clusterOf.has(id)) clusterOf.set(id, sg);
+
+  // 1. Lay out each cluster internally; record local offsets and cluster size.
+  const superNodes = [];
+  const idToSuper = new Map();
+  for (const sg of topLevel) {
+    const members = sg.nodes.map(id => nodeMap.get(id)).filter(n => n && clusterOf.get(n.id) === sg);
+    if (!members.length) continue;
+    const innerEdges = edges.filter(e => clusterOf.get(e.from) === sg && clusterOf.get(e.to) === sg);
+    layoutFlowchart(members, innerEdges, sg.direction || direction);
+    const minX = Math.min(...members.map(m => m.x)), minY = Math.min(...members.map(m => m.y));
+    for (const m of members) { m._lx = m.x - minX + PAD; m._ly = m.y - minY + LABEL + PAD; }
+    const w = Math.max(...members.map(m => m._lx + m.w)) + PAD;
+    const h = Math.max(...members.map(m => m._ly + m.h)) + PAD;
+    const s = { id: `sg:${sg.id}`, w, h, kind: 'cluster', sg, members };
+    superNodes.push(s);
+    for (const m of members) idToSuper.set(m.id, s);
+  }
+  // Free nodes (not in any cluster) become their own super-nodes.
+  for (const n of nodes) {
+    if (clusterOf.has(n.id)) continue;
+    const s = { id: n.id, w: n.w, h: n.h, kind: 'free', node: n };
+    superNodes.push(s);
+    idToSuper.set(n.id, s);
+  }
+
+  // 2. Coarse graph: one edge between distinct super-nodes (deduped).
+  const seen = new Set();
+  const coarseEdges = [];
+  for (const e of edges) {
+    const a = idToSuper.get(e.from), b = idToSuper.get(e.to);
+    if (!a || !b || a === b) continue;
+    const k = `${a.id}>${b.id}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    coarseEdges.push({ from: a.id, to: b.id });
+  }
+
+  // 3. Lay out the coarse graph, then 4. place members / free nodes / boxes.
+  layoutFlowchart(superNodes, coarseEdges, direction);
+  for (const s of superNodes) {
+    if (s.kind === 'cluster') {
+      for (const m of s.members) { m.x = s.x + m._lx; m.y = s.y + m._ly; }
+      Object.assign(s.sg, { x: s.x, y: s.y, w: s.w, h: s.h });
+    } else {
+      s.node.x = s.x; s.node.y = s.y;
+    }
+  }
 }
 
 /**

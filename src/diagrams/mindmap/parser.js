@@ -4,21 +4,52 @@
  */
 
 /**
- * Detect a node's shape from its surrounding delimiters and strip them to the label.
- * Recognized: `((circle))`, `(rounded)`, `[rect]`, `{{hexagon}}`, `>bang]`, `)cloud(`.
- * Anything else is treated as a plain `rounded` node.
- * @param {string} raw - The raw node text (delimiters included).
- * @returns {{shape: string, label: string}} The shape keyword and inner label.
+ * Parse a node's text into shape, label, optional class and icon. A node may
+ * carry an optional leading id before the bracket (e.g. `root((Root))`), a
+ * trailing `:::class`, and a trailing `::icon(...)`. Markdown backticks/markers
+ * are stripped from the label.
+ * Shapes: `((circle))`, `(rounded)`, `[rect]`, `{{hexagon}}`, `))bang((`, `)cloud(`.
+ * @param {string} raw - The raw node text.
+ * @returns {{shape: string, label: string, cls: (string|null), icon: (string|null)}} Parsed node.
  */
 function parseShape(raw) {
   raw = raw.trim();
-  if (/^\(\((.+)\)\)$/.test(raw)) return { shape: 'circle', label: raw.slice(2, -2).trim() };
-  if (/^\((.+)\)$/.test(raw))       return { shape: 'rounded', label: raw.slice(1, -1).trim() };
-  if (/^\[(.+)\]$/.test(raw))       return { shape: 'rect', label: raw.slice(1, -1).trim() };
-  if (/^\{\{(.+)\}\}$/.test(raw)) return { shape: 'hexagon', label: raw.slice(2, -2).trim() };
-  if (/^>(.+)\]$/.test(raw))         return { shape: 'bang', label: raw.slice(1, -1).trim() };
-  if (/^\)(.+)\($/.test(raw))       return { shape: 'cloud', label: raw.slice(1, -1).trim() };
-  return { shape: 'rounded', label: raw };
+
+  // Trailing `:::class` and `::icon(...)` decorators (either order).
+  let cls = null, icon = null;
+  for (let changed = true; changed; ) {
+    changed = false;
+    const cm = raw.match(/:::([\w-]+)\s*$/);
+    if (cm) { cls = cm[1]; raw = raw.slice(0, cm.index).trim(); changed = true; }
+    const im = raw.match(/::icon\(([^)]*)\)\s*$/);
+    if (im) { icon = im[1].trim(); raw = raw.slice(0, im.index).trim(); changed = true; }
+  }
+
+  // Optional leading id, then a shape bracket pair. Double brackets first.
+  const ID = '(?:[\\w-]+)?';
+  let m, shape = 'default', label = raw;
+  if      ((m = raw.match(new RegExp(`^${ID}\\)\\)(.+)\\(\\($`))))  { shape = 'bang';    label = m[1]; }
+  else if ((m = raw.match(new RegExp(`^${ID}\\(\\((.+)\\)\\)$`))))  { shape = 'circle';  label = m[1]; }
+  else if ((m = raw.match(new RegExp(`^${ID}\\{\\{(.+)\\}\\}$`))))  { shape = 'hexagon'; label = m[1]; }
+  else if ((m = raw.match(new RegExp(`^${ID}\\[(.+)\\]$`))))        { shape = 'rect';    label = m[1]; }
+  else if ((m = raw.match(new RegExp(`^${ID}\\)(.+)\\($`))))        { shape = 'cloud';   label = m[1]; }
+  else if ((m = raw.match(new RegExp(`^${ID}\\((.+)\\)$`))))        { shape = 'rounded'; label = m[1]; }
+
+  return { shape, label: stripMarkdown(label), cls, icon };
+}
+
+/**
+ * Strip markdown-string backticks and basic emphasis markers from a label.
+ * @param {string} s - The raw label.
+ * @returns {string} The cleaned label.
+ */
+function stripMarkdown(s) {
+  s = s.trim();
+  // Peel matched surrounding quotes/backticks (markdown-string wrappers).
+  while (s.length >= 2 && ((s[0] === '"' && s[s.length - 1] === '"') || (s[0] === '`' && s[s.length - 1] === '`'))) {
+    s = s.slice(1, -1).trim();
+  }
+  return s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1').replace(/<br\s*\/?>/gi, ' ').trim();
 }
 
 /** Monotonic counter backing {@link uid}; reset at the start of each parse. */
@@ -50,14 +81,20 @@ export function parseMindmap(text) {
 
   for (const line of lines) {
     const raw = line.trimEnd();
-    if (!raw.trim() || /^mindmap\b/i.test(raw.trim()) || raw.trim().startsWith('%%')) continue;
-    if (raw.trim().startsWith('::icon(')) continue;
+    const content = raw.trim();
+    if (!content || /^mindmap\b/i.test(content) || content.startsWith('%%')) continue;
+
+    // A standalone `::icon(...)` or `:::class` line decorates the current node
+    // (older Mermaid form) rather than creating a new node.
+    const topNode = nodeStack.length ? nodeStack[nodeStack.length - 1].node : null;
+    const iconOnly = content.match(/^::icon\(([^)]*)\)$/);
+    if (iconOnly) { if (topNode) topNode.icon = iconOnly[1].trim(); continue; }
+    const clsOnly = content.match(/^:::([\w-]+)$/);
+    if (clsOnly) { if (topNode) topNode.cls = clsOnly[1]; continue; }
 
     const indent = raw.match(/^\s*/)[0].length;
-    const content = raw.trim();
-
-    const { shape, label } = parseShape(content);
-    const node = { id: uid(), shape, label, children: [] };
+    const { shape, label, cls, icon } = parseShape(content);
+    const node = { id: uid(), shape, label, cls, icon, children: [] };
 
     // Pop ancestors whose indent is >= this node's, so the stack top becomes the parent.
     while (nodeStack.length > 0 && nodeStack[nodeStack.length - 1].indent >= indent) {
@@ -66,8 +103,11 @@ export function parseMindmap(text) {
 
     if (nodeStack.length > 0) {
       nodeStack[nodeStack.length - 1].node.children.push(node);
-    } else {
+    } else if (!root) {
       root = node;
+    } else {
+      // Mermaid allows a single root; attach extra top-level nodes to it.
+      root.children.push(node);
     }
     nodeStack.push({ indent, node });
   }

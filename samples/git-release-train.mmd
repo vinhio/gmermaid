@@ -1,0 +1,17 @@
+gitGraph LR:
+    commit id: "1.0" tag: "v1.0"
+    branch release/1.x order: 1
+    checkout main
+    commit id: "feat-a"
+    commit id: "feat-b"
+    commit id: "2.0" tag: "v2.0"
+    branch release/2.x order: 2
+    commit id: "rc1"
+    checkout release/1.x
+    commit id: "patch1" tag: "v1.0.1"
+    checkout main
+    cherry-pick id: "patch1"
+    checkout release/2.x
+    commit id: "rc2" tag: "v2.0-rc2"
+    checkout main
+    merge release/2.x id: "ship2" tag: "v2.0.0" type: HIGHLIGHT

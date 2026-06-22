@@ -1,0 +1,27 @@
+flowchart TB
+    Dev([Developer]):::actor -->|git push| Hook{{Webhook}}
+    Hook ==> Build
+
+    subgraph CI [CI Pipeline]
+        direction TB
+        Build[/Build &amp; Compile/] --> Test{Tests pass?}
+        Test -->|yes| Scan[[Security Scan]]
+        Test -->|no| Fail((Fail))
+        Scan --> Image[(Container Image)]
+    end
+
+    subgraph CD [CD Pipeline]
+        direction TB
+        Stage[Deploy Staging] --> Smoke{Smoke OK?}
+        Smoke -->|yes| Prod[Deploy Production]
+        Smoke -->|no| Rollback>Rollback]
+    end
+
+    Image ==>|promote| Stage
+    Prod --> Released(((Released)))
+    Fail -.->|notify| Dev
+    Rollback -.->|alert| Dev
+
+    classDef actor fill:#1f6feb,stroke:#ffffff,color:#ffffff
+    classDef danger fill:#da3633,stroke:#ffffff,color:#ffffff
+    class Fail,Rollback danger

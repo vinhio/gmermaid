@@ -1,0 +1,23 @@
+flowchart TB
+    Start((Start)) --> New[New Order]
+    New --> Validate{Stock &amp; payment valid?}
+    Validate -->|no| Cancelled>Order Cancelled]
+    Validate -->|yes| Paid
+
+    subgraph fulfillment [Fulfillment]
+        direction LR
+        Paid[Payment Captured] --> Pack[/Pack Items/]
+        Pack --> Ship[\Ship\]
+        Ship --> Deliver[Deliver]
+    end
+
+    Deliver --> Completed(((Completed)))
+    Cancelled --> Refund[Refund] & Notify[Notify Customer]
+    Refund --> End((End))
+    Notify --> End
+    Completed <--> Survey([Send Survey])
+
+    classDef happy fill:#238636,stroke:#ffffff,color:#ffffff
+    classDef sad fill:#da3633,stroke:#ffffff,color:#ffffff
+    class Completed happy
+    class Cancelled,Refund sad

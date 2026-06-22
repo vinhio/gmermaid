@@ -199,9 +199,10 @@ export class Interact {
    * @param {SVGElement} element - The node element to make draggable.
    * @param {{id: string, x: number, y: number}} nodeState - Mutable node position state.
    * @param {(nodeState: object) => void} [onMove] - Optional per-move callback (e.g. to redraw edges).
+   * @param {(x: number, y: number) => {x: number, y: number}} [constrain] - Optional clamp applied to the proposed position (e.g. to keep a node inside its namespace).
    * @returns {void}
    */
-  attachDrag(element, nodeState, onMove) {
+  attachDrag(element, nodeState, onMove, constrain) {
     let start = null, orig = null;  // pointer world-origin and node origin at drag start
     element.setAttribute('data-draggable', '1');
 
@@ -217,10 +218,14 @@ export class Interact {
 
     element.addEventListener('pointermove', e => {
       if (!start) return;
-      // Translate node by the world-space pointer delta, then snap to grid.
-      const p     = this.screenToWorld(e.clientX, e.clientY);
-      nodeState.x = this.#snap(orig.x + (p.x - start.x));
-      nodeState.y = this.#snap(orig.y + (p.y - start.y));
+      // Translate node by the world-space pointer delta, snap to grid, then
+      // apply any caller constraint (e.g. clamp inside a namespace).
+      const p = this.screenToWorld(e.clientX, e.clientY);
+      let nx = this.#snap(orig.x + (p.x - start.x));
+      let ny = this.#snap(orig.y + (p.y - start.y));
+      if (constrain) ({ x: nx, y: ny } = constrain(nx, ny));
+      nodeState.x = nx;
+      nodeState.y = ny;
       element.setAttribute('transform', `translate(${nodeState.x},${nodeState.y})`);
       onMove?.(nodeState);
     });

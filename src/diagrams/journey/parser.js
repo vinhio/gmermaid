@@ -32,21 +32,21 @@ export function parseJourney(text) {
       continue;
     }
 
-    // Task: "Task name: score: Actor1, Actor2"
-    const parts = line.split(':');
-    if (parts.length >= 2) {
-      const name  = parts[0].trim();
-      // Default to a neutral score of 3 when missing or non-numeric.
-      const score = parseInt(parts[1]?.trim(), 10) || 3;
-      const actors = parts[2] ? parts[2].split(',').map(a => a.trim()).filter(Boolean) : [];
+    // Task: "Task name: score: Actor1, Actor2" (actors optional). The name is
+    // matched non-greedily so a colon inside it doesn't shift the score field.
+    const m = line.match(/^(.+?)\s*:\s*(\d+)\s*(?::\s*(.*))?$/);
+    if (m) {
+      const name = m[1].trim();
       if (!name) continue;
+      // Default to a neutral score of 3, then clamp into the valid 1..5 range.
+      const score = Math.min(5, Math.max(1, parseInt(m[2], 10) || 3));
+      const actors = m[3] ? m[3].split(',').map(a => a.trim()).filter(Boolean) : [];
       // Tasks appearing before any `section` go into an implicit unlabelled one.
       if (!currentSection) {
         currentSection = { label: '', tasks: [] };
         sections.push(currentSection);
       }
-      // Clamp score into the valid 1..5 satisfaction range.
-      currentSection.tasks.push({ name, score: Math.min(5, Math.max(1, score)), actors });
+      currentSection.tasks.push({ name, score, actors });
     }
   }
 

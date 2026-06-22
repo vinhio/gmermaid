@@ -1,0 +1,24 @@
+stateDiagram-v2
+    [*] --> Active
+
+    state Active {
+        [*] --> NumLockOff
+        NumLockOff --> NumLockOn : NumLock pressed
+        NumLockOn --> NumLockOff : NumLock pressed
+        --
+        [*] --> CapsLockOff
+        CapsLockOff --> CapsLockOn : CapsLock pressed
+        CapsLockOn --> CapsLockOff : CapsLock pressed
+        --
+        [*] --> ScrollLockOff
+        ScrollLockOff --> ScrollLockOn : ScrollLock pressed
+        ScrollLockOn --> ScrollLockOff : ScrollLock pressed
+    }
+
+    Active --> [*] : power off
+
+    note left of Active
+        Three independent regions
+        run concurrently while the
+        keyboard is powered on.
+    end note

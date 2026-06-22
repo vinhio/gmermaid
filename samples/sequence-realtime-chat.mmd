@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor A as Alice
+    participant GW as WS Gateway
+    participant PS as Presence Svc
+    participant MQ as Message Bus
+    actor B as Bob
+
+    A->>+GW: WS connect (JWT)
+    GW->>+PS: register(Alice)
+    PS--)MQ: presence.online(Alice)
+    PS-->>-GW: session ok
+    GW-->>-A: connected
+
+    Note over A,B: Bob joins mid-conversation
+
+    create participant W as Worker
+    GW->>W: spawn typing-indicator worker
+
+    loop While typing
+        A-)GW: typing=true
+        GW--)B: peer typing…
+    end
+
+    A->>+GW: sendMessage("hi Bob")
+    GW--)MQ: publish(msg)
+    MQ--)B: deliver(msg)
+    B-->>-GW: ack(msgId)
+
+    A<<->>B: end-to-end key exchange
+
+    destroy W
+    GW-xW: stop worker
+
+    B->>+GW: WS disconnect
+    GW->>PS: unregister(Bob)
+    PS--)MQ: presence.offline(Bob)
+    GW-->>-B: bye

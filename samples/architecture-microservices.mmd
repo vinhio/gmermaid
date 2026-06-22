@@ -1,0 +1,23 @@
+architecture-beta
+    group edge(cloud)[Edge]
+    service cdn(internet)[CDN] in edge
+    service gw(server)[API Gateway] in edge
+
+    group svc(server)[Services]
+    service users(server)[Users Svc] in svc
+    service orders(server)[Orders Svc] in svc
+    service payments(server)[Payments Svc] in svc
+
+    group data(database)[Data Stores]
+    service udb(database)[Users DB] in data
+    service odb(database)[Orders DB] in data
+    service mq(queue)[Message Bus] in data
+
+    cdn:R --> L:gw
+    gw:R --> L:users
+    gw:R --> L:orders
+    gw:R --> L:payments
+    users:B --> T:udb
+    orders:B --> T:odb
+    orders:R --> L:mq
+    payments:R --> L:mq

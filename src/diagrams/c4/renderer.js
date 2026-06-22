@@ -7,10 +7,11 @@ import { svgEl } from '../../core/renderer.js';
 
 const BOX_W  = 160; // Element box width.
 const BOX_H  = 100; // Element box height.
-const H_GAP  = 60;  // Horizontal gap between grid columns.
-const V_GAP  = 60;  // Vertical gap between grid rows.
+const CELL_GAP = 36; // Gap between items inside a container.
 const COLS   = 3;   // Elements per row before wrapping.
 const PAD    = 40;  // Outer padding.
+const B_PAD  = 22;  // Inner padding inside a boundary box.
+const B_LABEL = 26; // Boundary header/label band height.
 
 // Fill colour per element kind; external elements override with EXT_COLOR.
 const KIND_COLOR = {
@@ -45,20 +46,47 @@ export function renderC4(ast, nodeLayer, edgeLayer) {
   nodeLayer.replaceChildren();
   edgeLayer.replaceChildren();
 
-  const { title, elements, rels } = ast;
-  if (!elements.length && !rels.length) return;
+  const { title, elements, boundaries = [], rels } = ast;
+  if (!elements.length && !boundaries.length && !rels.length) return;
 
-  // Reserve vertical space for the title, then place each element on the grid.
   const titleOff = title ? 50 : 10;
-  const positions = new Map();
-  for (let i = 0; i < elements.length; i++) {
-    const col = i % COLS;
-    const row = Math.floor(i / COLS);
-    positions.set(elements[i].id, {
-      x: PAD + col * (BOX_W + H_GAP),
-      y: titleOff + row * (BOX_H + V_GAP),
-    });
+  const elsByParent  = groupByParent(elements);
+  const bndsByParent = groupByParent(boundaries);
+
+  // Phase 1 — recursive sizing: lay out each container's items (elements + nested
+  // boundaries) into a wrapping grid, recording local positions and box sizes.
+  function layoutContainer(pid) {
+    const els  = elsByParent.get(pid)  ?? [];
+    const subs = bndsByParent.get(pid) ?? [];
+    for (const b of subs) { const sz = layoutContainer(b.id); b._w = sz.w; b._h = sz.h; }
+    const items = [
+      ...els.map(e => ({ ref: e, w: BOX_W, h: BOX_H })),
+      ...subs.map(b => ({ ref: b, w: b._w, h: b._h })),
+    ];
+    const left = pid === null ? PAD : B_PAD;
+    const top  = pid === null ? titleOff : B_LABEL + B_PAD;
+    let x = left, y = top, rowH = 0, col = 0, maxR = left, maxB = top;
+    for (const it of items) {
+      it.ref._lx = x; it.ref._ly = y;
+      maxR = Math.max(maxR, x + it.w); maxB = Math.max(maxB, y + it.h);
+      x += it.w + CELL_GAP; rowH = Math.max(rowH, it.h);
+      if (++col >= COLS) { col = 0; x = left; y += rowH + CELL_GAP; rowH = 0; }
+    }
+    const padR = pid === null ? PAD : B_PAD;
+    return { w: maxR + padR, h: maxB + padR };
   }
+  const rootSize = layoutContainer(null);
+
+  // Phase 2 — absolute positions by accumulating offsets down the tree.
+  (function place(pid, ox, oy) {
+    for (const e of (elsByParent.get(pid)  ?? [])) { e.x = ox + e._lx; e.y = oy + e._ly; }
+    for (const b of (bndsByParent.get(pid) ?? [])) { b.x = ox + b._lx; b.y = oy + b._ly; place(b.id, b.x, b.y); }
+  })(null, 0, 0);
+
+  // Combined id → box lookup (elements and boundaries) for relationship endpoints.
+  const boxById = new Map();
+  for (const e of elements)   boxById.set(e.id, { x: e.x, y: e.y, w: BOX_W, h: BOX_H });
+  for (const b of boundaries) boxById.set(b.id, { x: b.x, y: b.y, w: b._w, h: b._h });
 
   const g = svgEl('g');
 
@@ -73,20 +101,35 @@ export function renderC4(ast, nodeLayer, edgeLayer) {
   if (title) {
     g.appendChild(svgEl('text', {
       class: 'gm-c4-title',
-      x: PAD + (COLS * (BOX_W + H_GAP)) / 2, y: 26,
+      x: rootSize.w / 2, y: 26,
       'text-anchor': 'middle',
       'dominant-baseline': 'middle',
     }, title));
   }
 
+  // Boundary frames (outermost first so nested ones paint on top).
+  const byDepth = [...boundaries].sort((a, b) => boundaryDepth(a, boundaries) - boundaryDepth(b, boundaries));
+  for (const b of byDepth) {
+    g.appendChild(svgEl('rect', {
+      class: 'gm-c4-boundary', x: b.x, y: b.y, width: b._w, height: b._h, rx: 8,
+      fill: 'rgba(255,255,255,0.025)', stroke: 'var(--gm-muted)', 'stroke-width': 1, 'stroke-dasharray': '6,4',
+    }));
+    if (b.label) {
+      g.appendChild(svgEl('text', {
+        class: 'gm-c4-boundary-label', x: b.x + 12, y: b.y + 16,
+        fill: 'var(--gm-muted)', 'font-family': 'var(--gm-label-font)', 'font-size': 12, 'font-weight': 700, 'pointer-events': 'none',
+      }, b.kind && b.kind !== 'boundary' ? `${b.label}  [${b.kind}]` : b.label));
+    }
+  }
+
   // Relationships
   for (const rel of rels) {
-    const fp = positions.get(rel.from);
-    const tp = positions.get(rel.to);
+    const fp = boxById.get(rel.from);
+    const tp = boxById.get(rel.to);
     if (!fp || !tp) continue;
 
-    const fx = fp.x + BOX_W / 2, fy = fp.y + BOX_H / 2;
-    const tx = tp.x + BOX_W / 2, ty = tp.y + BOX_H / 2;
+    const fx = fp.x + fp.w / 2, fy = fp.y + fp.h / 2;
+    const tx = tp.x + tp.w / 2, ty = tp.y + tp.h / 2;
 
     g.appendChild(svgEl('line', {
       class: 'gm-c4-rel',
@@ -118,10 +161,8 @@ export function renderC4(ast, nodeLayer, edgeLayer) {
 
   // Elements
   for (const el of elements) {
-    const pos = positions.get(el.id);
-    if (!pos) continue;
     const color = boxColor(el);
-    const elG = svgEl('g', { transform: `translate(${pos.x},${pos.y})` });
+    const elG = svgEl('g', { transform: `translate(${el.x},${el.y})` });
 
     if (el.kind === 'person') {
       // Person is drawn as a stick-figure-ish head circle above a body rect.
@@ -176,4 +217,31 @@ export function renderC4(ast, nodeLayer, edgeLayer) {
   }
 
   nodeLayer.appendChild(g);
+}
+
+/**
+ * Group nodes by their `parent` id (null = top level).
+ * @param {Array<{parent: string|null}>} nodes - Elements or boundaries.
+ * @returns {Map<string|null, Array>} parent id -> nodes.
+ */
+function groupByParent(nodes) {
+  const m = new Map();
+  for (const n of nodes) {
+    const k = n.parent ?? null;
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(n);
+  }
+  return m;
+}
+
+/**
+ * Compute a boundary's nesting depth (number of ancestor boundaries).
+ * @param {{parent: string|null}} b - The boundary.
+ * @param {Array<{id: string, parent: string|null}>} all - All boundaries.
+ * @returns {number} Depth (0 = top level).
+ */
+function boundaryDepth(b, all) {
+  let d = 0, p = b.parent;
+  while (p) { const par = all.find(x => x.id === p); if (!par) break; d++; p = par.parent; }
+  return d;
 }

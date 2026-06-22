@@ -1,0 +1,19 @@
+block-beta
+  columns 5
+  ingest["Ingest API"]
+  a1<["events"]>(right)
+  kafka[["Kafka"]]
+  a2<["stream"]>(right)
+  proc["Stream Processor"]
+  space:5
+  fan<["fan-out"]>(x):5
+  space:5
+  block:sinks:5
+    columns 3
+    warehouse[("Warehouse")]
+    cache[("Cache")]
+    alerts{"Alerts"}
+  end
+  proc --> sinks
+  style kafka fill:#3a2d5c,color:#ffffff
+  style proc fill:#1a6b2e,color:#ffffff

@@ -10,8 +10,20 @@ import { svgEl } from '../../core/renderer.js';
 // Board geometry (SVG user units): column/card sizes, gaps and outer padding.
 const COL_W = 180, CARD_H = 44, CARD_GAP = 8, COL_GAP = 20, PAD = 30;
 const COL_HEADER_H = 32;
-// Priority label → stripe color.
-const PRIORITY_COLORS = { 'Very High': 'oklch(0.6 0.18 30)', High: 'oklch(0.65 0.15 45)', Medium: 'oklch(0.68 0.12 80)', Low: 'oklch(0.62 0.1 155)' };
+// Priority label → stripe color (documented levels plus a tolerant `Medium`).
+const PRIORITY_COLORS = {
+  'Very High': 'oklch(0.6 0.18 30)', High: 'oklch(0.65 0.15 45)', Medium: 'oklch(0.68 0.12 80)',
+  Low: 'oklch(0.62 0.1 155)', 'Very Low': 'oklch(0.55 0.08 200)',
+};
+
+/**
+ * Initials (up to two) for an assignee name, for the avatar chip.
+ * @param {string} name - The assignee name.
+ * @returns {string} Up to two uppercase initials.
+ */
+function initials(name) {
+  return name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
 const HUES = [220, 160, 45, 330, 90, 270]; // per-column hue cycle
 
 /**
@@ -88,6 +100,14 @@ export function renderKanban(ast, nodeLayer, edgeLayer) {
           x: cx + 16, y: cy + CARD_H / 2 + 9,
           'dominant-baseline': 'middle', fill: 'var(--gm-muted)', 'font-size': '9', 'pointer-events': 'none',
         }, card.ticket));
+      }
+
+      // Assignee avatar chip (initials) at the card's top-right corner.
+      if (card.assigned) {
+        const ax = cx + COL_W - 24, ay = cy + 14;
+        g.appendChild(svgEl('circle', { cx: ax, cy: ay, r: 9, fill: 'var(--gm-accent-dim)', stroke: 'var(--gm-bg)', 'stroke-width': 1 }));
+        g.appendChild(svgEl('text', { x: ax, y: ay + 1, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#fff', 'font-size': '8', 'font-weight': '700', 'pointer-events': 'none' }, initials(card.assigned)));
+        g.appendChild(svgEl('title', {}, card.assigned));
       }
     });
   });

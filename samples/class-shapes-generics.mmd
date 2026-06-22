@@ -1,0 +1,58 @@
+classDiagram
+    direction TB
+
+    class Shape {
+        <<abstract>>
+        #String color
+        #Point origin
+        +area()* double
+        +perimeter()* double
+        +describe() String
+        +compareTo(Shape other) int
+    }
+
+    class Circle {
+        +double radius
+        +area() double
+        +perimeter() double
+    }
+    class Rectangle {
+        +double width
+        +double height
+        +area() double
+        +perimeter() double
+    }
+    class Square
+
+    Shape <|-- Circle
+    Shape <|-- Rectangle
+    Rectangle <|-- Square
+
+    class Comparator~T~ {
+        <<interface>>
+        +compare(T a, T b) int
+    }
+    class AreaComparator {
+        +compare(Shape a, Shape b) int
+    }
+    Comparator~T~ <|.. AreaComparator
+    AreaComparator ..> Shape : compares
+
+    class Container~T~ {
+        -List~T~ items
+        +int capacity$
+        +add(T item) void
+        +get(int i) T
+        +size() int
+        +empty() Container~T~$
+    }
+    Container~T~ o-- "0..*" Shape : holds
+
+    class ShapeFactory {
+        +create(String kind)$ Shape
+    }
+    ShapeFactory ..> Circle : creates
+    ShapeFactory ..> Rectangle : creates
+
+    note for Shape "Abstract base —\ncannot be instantiated"
+    note for Container~T~ "Generic, reusable\nfor any Shape subtype"

@@ -1,0 +1,22 @@
+architecture-beta
+    group ingest(internet)[Ingestion]
+    service api(server)[Ingest API] in ingest
+    service stream(queue)[Kafka] in ingest
+
+    group lake(database)[Data Lake]
+    service raw(disk)[Raw Zone] in lake
+    service curated(database)[Curated] in lake
+
+    group serve(cloud)[Serving]
+    service warehouse(database)[Warehouse] in serve
+    service dash(server)[Dashboards] in serve
+
+    junction hub
+
+    api:R --> L:stream
+    stream:R --> L:hub
+    hub:R --> L:raw{group}
+    raw:B --> T:curated
+    curated:R --> L:warehouse
+    warehouse:R --> L:dash
+    dash:T <--> B:api

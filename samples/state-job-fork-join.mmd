@@ -1,0 +1,33 @@
+stateDiagram-v2
+    direction TB
+    [*] --> Queued
+    Queued --> Dispatch : worker free
+
+    state Fork <<fork>>
+    Dispatch --> Fork
+
+    state Shard {
+        [*] --> Mapping
+        Mapping --> Mapped : emit pairs
+        Mapped --> [*]
+    }
+
+    Fork --> Shard
+    Fork --> Reduce : stream
+    Reduce : Reduce partials
+
+    state Join <<join>>
+    Shard --> Join
+    Reduce --> Join
+
+    Join --> Aggregate : combine
+    Aggregate --> Decision
+    state Decision <<choice>>
+    Decision --> Done : success
+    Decision --> Retry : transient error
+    Retry --> Dispatch : backoff
+    Done --> [*]
+
+    note right of Join : Barrier — waits for\nall shards + reduce
+    classDef ok fill:#238636,stroke:#ffffff,color:#ffffff
+    class Done ok

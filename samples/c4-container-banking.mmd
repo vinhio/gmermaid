@@ -1,0 +1,27 @@
+C4Container
+    title Container Diagram — Internet Banking
+
+    Person(customer, "Customer", "A bank customer")
+
+    System_Boundary(banking, "Internet Banking System") {
+        Container(web, "Web Application", "Java, Spring MVC", "Delivers static content and the SPA")
+        Container(spa, "Single-Page App", "JavaScript, React", "Account and payment features")
+        Container(mobile, "Mobile App", "Kotlin", "Limited banking features")
+        Container(api, "API Application", "Java, Spring Boot", "Banking functionality via JSON/HTTPS")
+        ContainerDb(db, "Database", "PostgreSQL", "Stores users, accounts, transactions")
+        ContainerQueue(events, "Event Bus", "Kafka", "Async account events")
+    }
+
+    System_Ext(mainframe, "Mainframe Banking", "Core banking system")
+    SystemDb_Ext(auth, "Identity Provider", "OAuth2 / OIDC")
+
+    Rel(customer, web, "Visits bigbank.com", "HTTPS")
+    Rel(customer, spa, "Uses")
+    Rel(customer, mobile, "Uses")
+    Rel(web, spa, "Delivers to the browser")
+    Rel(spa, api, "Calls", "JSON/HTTPS")
+    Rel(mobile, api, "Calls", "JSON/HTTPS")
+    Rel(api, db, "Reads from and writes to", "SQL/TCP")
+    Rel(api, events, "Publishes to", "Kafka")
+    Rel(api, mainframe, "Uses", "XML/HTTPS")
+    Rel(api, auth, "Authenticates via", "OIDC")

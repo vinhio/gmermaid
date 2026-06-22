@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    box Purple Client Side
+        actor U as User
+        participant SPA as Single-Page App
+    end
+    box Green Authorization Server
+        participant AS as Auth Server
+        participant TS as Token Service
+    end
+    participant API as Resource API
+
+    U->>+SPA: Click "Log in"
+    Note over SPA: Generate code_verifier<br/>and code_challenge (S256)
+    SPA->>+AS: GET /authorize?challenge=...
+    AS-->>U: Show consent screen
+    U->>AS: Approve scopes
+    AS-->>-SPA: 302 redirect + auth_code
+
+    rect rgb(40, 60, 90)
+        Note over SPA,TS: Token exchange (back channel)
+        SPA->>+TS: POST /token (auth_code + code_verifier)
+        TS->>TS: Verify PKCE challenge
+        alt verifier valid
+            TS-->>SPA: access_token + refresh_token
+        else verifier mismatch
+            TS-->>SPA: 400 invalid_grant
+        end
+        deactivate TS
+    end
+
+    opt Token received
+        SPA->>+API: GET /me (Bearer access_token)
+        API->>API: Validate JWT signature
+        API-->>-SPA: 200 user profile
+    end
+
+    SPA-->>-U: Render dashboard

@@ -1,0 +1,52 @@
+sequenceDiagram
+    autonumber
+    actor Dev as Developer
+    participant Git as Git Forge
+    participant CI as CI Runner
+    box Transparent Build Stages
+        participant B as Builder
+        participant T as Test Grid
+        participant R as Registry
+    end
+    participant CD as CD Controller
+    participant K as Kubernetes
+
+    Dev->>Git: git push (feature branch)
+    Git--)CI: webhook: push event
+
+    CI->>+B: build image
+    B->>B: restore cache + compile
+    B-->>-CI: image:sha
+
+    par Run test matrix
+        CI->>T: unit tests
+    and
+        CI->>T: integration tests
+    and
+        CI->>T: e2e tests
+    end
+
+    break any test suite fails
+        T-->>CI: ❌ failures
+        CI--)Dev: notify: pipeline red
+    end
+
+    Note right of CI: All green —<br/>proceed to publish
+    CI->>+R: push image:sha
+    R-->>-CI: digest
+
+    critical Promote to production
+        CD->>+K: apply manifests (canary 10%)
+        K-->>-CD: rollout started
+    option Health checks fail
+        CD->>K: rollback to previous
+        CD--)Dev: notify: auto-rolled back
+    option Manual approval timeout
+        CD->>CD: hold at canary
+    end
+
+    opt Canary healthy for 10m
+        CD->>K: scale to 100%
+    end
+
+    K--)Dev: deployment succeeded

@@ -1,0 +1,53 @@
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    CUSTOMER ||--|| CART : owns
+    CUSTOMER ||..o{ REVIEW : writes
+    CART ||--o{ CART_ITEM : holds
+    ORDER ||--|{ ORDER_ITEM : contains
+    ORDER ||--|| PAYMENT : "settled by"
+    ORDER ||--o| SHIPMENT : fulfilled
+    PRODUCT ||--o{ ORDER_ITEM : "ordered as"
+    PRODUCT ||--o{ CART_ITEM : "added as"
+    PRODUCT ||--o{ REVIEW : about
+    PRODUCT }o--|| CATEGORY : "filed under"
+    CATEGORY |o--o{ CATEGORY : "parent of"
+
+    CUSTOMER {
+        bigint id PK
+        varchar email UK "login identity"
+        varchar full_name
+        timestamp created_at
+    }
+    ORDER {
+        bigint id PK
+        bigint customer_id FK
+        varchar status "pending|paid|shipped"
+        numeric total_amount
+        timestamp placed_at
+    }
+    ORDER_ITEM {
+        bigint id PK
+        bigint order_id FK
+        bigint product_id FK
+        int quantity
+        numeric unit_price
+    }
+    PRODUCT {
+        bigint id PK
+        bigint category_id FK
+        varchar sku UK
+        varchar name
+        numeric price
+        int stock
+    }
+    PAYMENT {
+        bigint id PK
+        bigint order_id FK,UK
+        varchar method
+        varchar status
+    }
+    CATEGORY {
+        bigint id PK
+        bigint parent_id FK "self-reference"
+        varchar name
+    }

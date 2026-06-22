@@ -25,8 +25,13 @@ export function renderXYChart(ast, nodeLayer, edgeLayer) {
   const { title, xAxis, yAxis, series } = ast;
   if (!series.length) return;
 
-  // Fall back to integer indices when no x labels were supplied.
-  const labels   = xAxis.labels.length ? xAxis.labels : series[0]?.data.map((_, i) => String(i)) ?? [];
+  // X labels: explicit categories, else interpolated ticks for a numeric x-axis,
+  // else integer indices.
+  const dataLen  = series[0]?.data.length ?? 0;
+  const labels   = xAxis.labels.length ? xAxis.labels
+    : (xAxis.numeric && dataLen
+        ? Array.from({ length: dataLen }, (_, i) => fmtTick(xAxis.min + (xAxis.max - xAxis.min) * (dataLen > 1 ? i / (dataLen - 1) : 0)))
+        : (series[0]?.data.map((_, i) => String(i)) ?? []));
   const n        = labels.length;
   const yMin     = yAxis.min ?? 0;
   const yMax     = yAxis.max ?? Math.max(...series.flatMap(s => s.data));
@@ -69,7 +74,7 @@ export function renderXYChart(ast, nodeLayer, edgeLayer) {
     g.appendChild(svgEl('text', {
       class: 'gm-xy-tick', x: PAD_L - 6, y: ty,
       'text-anchor': 'end', 'dominant-baseline': 'middle',
-    }, Math.round(v)));
+    }, fmtTick(v)));
   }
 
   // X axis labels
@@ -91,14 +96,18 @@ export function renderXYChart(ast, nodeLayer, edgeLayer) {
     g.appendChild(yl);
   }
 
-  // Bars: grouped per category, centered on the slot; series offset side by side.
+  // Bars grow from the zero line (clamped into range), so negative values draw
+  // downward; series are offset side by side within each category slot.
+  const baseY = dataY(Math.max(yMin, Math.min(yMax, 0)));
   barSeries.forEach((s, si) => {
     const color = `oklch(0.55 0.17 ${HUES[si % HUES.length]})`;
     const totalBarW = barW * barSeries.length;
     s.data.forEach((v, i) => {
+      if (!Number.isFinite(v)) return;
       const bx = slotX(i) - totalBarW / 2 + si * barW;
-      const by = dataY(v), bh = (CHART_H - PAD_B) - by; // height = baseline minus value's y
-      if (bh <= 0) return;
+      const vy = dataY(v);
+      const by = Math.min(vy, baseY), bh = Math.abs(vy - baseY);
+      if (bh < 0.5) return;
       g.appendChild(svgEl('rect', { class: 'gm-xy-bar', x: bx, y: by, width: barW - 2, height: bh, fill: color, rx: 2 }));
     });
   });
@@ -115,4 +124,13 @@ export function renderXYChart(ast, nodeLayer, edgeLayer) {
   });
 
   nodeLayer.appendChild(g);
+}
+
+/**
+ * Format an axis tick value: integers as-is, otherwise one decimal place.
+ * @param {number} v - The tick value.
+ * @returns {string} The formatted label.
+ */
+function fmtTick(v) {
+  return Number.isInteger(v) ? String(v) : (Math.abs(v) < 10 ? v.toFixed(1) : String(Math.round(v)));
 }

@@ -27,18 +27,28 @@ const HUES   = [220, 160, 45, 330, 90, 270, 20, 185]; // per-field hue cycle
  */
 export function renderPacket(ast, nodeLayer, edgeLayer) {
   nodeLayer.replaceChildren(); edgeLayer.replaceChildren();
-  const { fields } = ast;
+  const { title, fields } = ast;
   if (!fields.length) return;
 
   // Total bit count comes from the last (highest) field; rows wrap every 32 bits.
   const totalBits = fields[fields.length - 1].end + 1;
   const rows = Math.ceil(totalBits / BITS_PER_ROW);
+  const titleOff = title ? 34 : 0; // vertical room reserved above the rows
   const g = svgEl('g');
+
+  if (title) {
+    g.appendChild(svgEl('text', {
+      class: 'gm-packet-title',
+      x: PAD + (BITS_PER_ROW * BIT_W) / 2, y: PAD - 6,
+      'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      fill: 'var(--gm-text)', 'font-family': 'var(--gm-label-font)', 'font-size': 15, 'font-weight': 600,
+    }, title));
+  }
 
   // Bit ruler: per row, a tick + bit-number label every 8 bits (0, 8, 16, 24).
   // Row vertical pitch = ROW_H + TICK_H + 24 (box + ticks + label gutter).
   for (let r = 0; r < rows; r++) {
-    const ry = PAD + r * (ROW_H + TICK_H + 24);
+    const ry = PAD + titleOff + r * (ROW_H + TICK_H + 24);
     for (let b = 0; b < BITS_PER_ROW; b += 8) {
       const bx = PAD + b * BIT_W;
       g.appendChild(svgEl('line', { x1: bx, y1: ry, x2: bx, y2: ry - TICK_H, stroke: 'var(--gm-muted)', 'stroke-width': '1' }));
@@ -61,7 +71,7 @@ export function renderPacket(ast, nodeLayer, edgeLayer) {
       // Clamp this segment to the end of the current row; width spans its bits.
       const endBit = Math.min(field.end, (rowIndex + 1) * BITS_PER_ROW - 1);
       const w = (endBit - bit + 1) * BIT_W;
-      const ry = PAD + rowIndex * (ROW_H + TICK_H + 24);
+      const ry = PAD + titleOff + rowIndex * (ROW_H + TICK_H + 24);
       const fx = PAD + bitInRow * BIT_W;
 
       g.appendChild(svgEl('rect', {

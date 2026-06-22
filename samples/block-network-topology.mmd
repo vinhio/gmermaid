@@ -1,0 +1,26 @@
+block-beta
+  columns 3
+  internet(("Internet"))
+  up<["traffic"]>(down)
+  users(("Users"))
+  space:3
+  fw["Firewall / WAF"]:3
+  space:3
+  block:dmz:3
+    columns 2
+    web(["Web Server"])
+    proxy(["Reverse Proxy"])
+  end
+  space:3
+  block:internal:3
+    columns 3
+    app["App Cluster"]
+    db[("Database")]
+    cache[("Cache")]
+  end
+  internet --> fw
+  users --> fw
+  fw --> dmz
+  dmz --> internal
+  style internet fill:#1f6feb,color:#ffffff
+  style fw fill:#7a1f1f,color:#ffffff

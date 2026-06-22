@@ -1,0 +1,62 @@
+requirementDiagram
+    direction TB
+
+    requirement iec62304 {
+        id: SR-1
+        text: Software safety class C (IEC 62304)
+        risk: High
+        verifymethod: Analysis
+    }
+    functionalRequirement dose {
+        id: FR-1
+        text: Infusion dose accuracy +/- 2%
+        risk: High
+        verifymethod: Test
+    }
+    functionalRequirement occlusion {
+        id: FR-2
+        text: Occlusion alarm within 1s
+        risk: High
+        verifymethod: Test
+    }
+    interfaceRequirement display {
+        id: IR-1
+        text: Touchscreen UI 800x480
+        risk: Low
+        verifymethod: Demonstration
+    }
+    physicalRequirement battery {
+        id: PhR-1
+        text: 8h runtime on full charge
+        risk: Medium
+        verifymethod: Test
+    }
+    designConstraint watchdog {
+        id: DC-1
+        text: Hardware watchdog timer
+        risk: Medium
+        verifymethod: Inspection
+    }
+
+    element pump_fw {
+        type: Firmware
+        docref: sw/pump.md
+    }
+    element ui_app {
+        type: Application
+        docref: sw/ui.md
+    }
+
+    iec62304 - contains -> dose
+    iec62304 - contains -> occlusion
+    dose - derives -> watchdog
+    occlusion - refines -> dose
+    dose - satisfies -> pump_fw
+    occlusion - satisfies -> pump_fw
+    display - satisfies -> ui_app
+    pump_fw <- verifies - battery
+    watchdog - traces -> iec62304
+    ui_app - copies -> pump_fw
+
+    classDef safety fill:#7a1f1f
+    class iec62304,dose,occlusion safety

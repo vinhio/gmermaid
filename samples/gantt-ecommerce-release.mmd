@@ -1,0 +1,28 @@
+gantt
+    title E-Commerce Platform v2.0
+    dateFormat YYYY-MM-DD
+    axisFormat %b %d
+    excludes weekends
+
+    section Discovery
+      Market research       : done, mr, 2024-01-02, 10d
+      Requirements          : done, req, after mr, 1w
+      Tech spec             : crit, done, spec, after req, 5d
+
+    section Design
+      UX wireframes         : done, ux, after spec, 8d
+      UI design             : active, ui, after ux, 12d
+      Design sign-off       : milestone, dr, after ui, 0d
+
+    section Build
+      Backend API           : crit, active, be, after spec, 4w
+      Frontend              : fe, after dr, 3w
+      Payments integration  : crit, pay, after be, 10d
+      QA automation         : qa, after be fe, 2w
+
+    section Launch
+      Beta release          : milestone, beta, after qa, 0d
+      Hardening             : after beta, 1w
+      GA launch             : crit, milestone, ga, after qa, 1d
+
+    vert 2024-04-15

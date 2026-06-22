@@ -1,0 +1,72 @@
+classDiagram
+    direction LR
+
+    class Customer {
+        +String id
+        +String email
+        +place(Order o) void
+    }
+    class Address {
+        +String street
+        +String city
+        +String zip
+    }
+    class Order {
+        +String id
+        +OrderStatus status
+        +Date placedAt
+        +total() BigDecimal
+        +addItem(Product p, int qty) void
+    }
+    class OrderItem {
+        +int quantity
+        +BigDecimal unitPrice
+        +subtotal() BigDecimal
+    }
+    class Product {
+        +String id
+        +String name
+        +BigDecimal price
+        +int stock
+        +isAvailable() bool
+    }
+    class Category {
+        +String id
+        +String name
+    }
+
+    class PaymentMethod {
+        <<interface>>
+        +authorize(BigDecimal amount)* bool
+        +capture()* void
+    }
+    class CreditCard {
+        +String last4
+        +authorize(BigDecimal amount) bool
+        +capture() void
+    }
+    class PayPal {
+        +String account
+        +authorize(BigDecimal amount) bool
+        +capture() void
+    }
+
+    class OrderStatus {
+        <<enumeration>>
+        PENDING
+        PAID
+        SHIPPED
+        CANCELLED
+    }
+
+    Customer "1" --> "0..*" Order : places
+    Customer "1" *-- "1..*" Address : ships to
+    Order "1" *-- "1..*" OrderItem : contains
+    OrderItem "*" --> "1" Product : refers
+    Product "*" --> "1" Category : in
+    Order ..> PaymentMethod : pays via
+    PaymentMethod <|.. CreditCard
+    PaymentMethod <|.. PayPal
+    Order --> OrderStatus
+
+    note for PaymentMethod "Strategy pattern:\nproviders are swappable"

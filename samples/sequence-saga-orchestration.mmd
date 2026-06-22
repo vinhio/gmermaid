@@ -1,0 +1,46 @@
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant O as Saga Orchestrator
+    box rgb(50,40,70) Downstream Services
+        participant OS as Order Svc
+        participant PS as Payment Svc
+        participant IS as Inventory Svc
+    end
+
+    C->>+O: POST /checkout
+
+    critical Begin distributed transaction
+        O->>+OS: createOrder(PENDING)
+        OS-->>-O: orderId
+    option Order service down
+        O-->>C: 503 try again later
+    end
+
+    par Reserve in parallel
+        O->>+PS: authorizePayment(orderId)
+        PS-->>-O: paymentId (held)
+    and
+        O->>+IS: reserveStock(orderId)
+        IS-->>-O: reservationId
+    end
+
+    alt all reservations succeeded
+        rect rgb(30,70,40)
+            Note over O,IS: Commit phase
+            O->>PS: capturePayment(paymentId)
+            O->>IS: commitStock(reservationId)
+            O->>OS: markOrder(CONFIRMED)
+        end
+        O-->>C: 201 Created (orderId)
+    else any reservation failed
+        rect rgb(80,30,30)
+            Note over O,IS: Compensating rollback
+            O-->>PS: voidPayment(paymentId)
+            O-->>IS: releaseStock(reservationId)
+            O->>OS: markOrder(CANCELLED)
+        end
+        O-->>C: 422 Checkout failed
+    end
+
+    deactivate O

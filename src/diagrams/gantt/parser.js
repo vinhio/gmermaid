@@ -1,32 +1,47 @@
 /**
- * Parses Mermaid gantt syntax into a GanttAST.
+ * Parses Mermaid `gantt` syntax into a GanttAST.
  * @module diagrams/gantt/parser
+ *
+ * Aims to cover the documented Mermaid gantt syntax:
+ * https://mermaid.js.org/syntax/gantt.html
  */
 
+const DAY = 86400000;
+
 /**
- * Parse an ISO `YYYY-MM-DD` string into a UTC epoch timestamp.
+ * Parse an ISO date (`YYYY-MM-DD`) or date-time (`YYYY-MM-DD HH:mm[:ss]`) into a
+ * UTC epoch timestamp.
  * @param {string} s - Candidate date string.
- * @returns {number|null} Milliseconds since epoch (UTC midnight), or null if not an ISO date.
+ * @returns {number|null} Milliseconds since epoch (UTC), or null if not a date.
  */
-function parseIsoDate(s) {
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : null;
+function parseDate(s) {
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  return null;
 }
 
 /**
- * Parse a duration token (`<n>d`, `<n>w`, `<n>h`) into milliseconds.
- * @param {string} s - Duration token, e.g. "5d", "2w", "8h".
+ * Parse a duration token into milliseconds. Units (case-sensitive): `ms`, `s`,
+ * `m` (minutes), `h`, `d`, `w`, `M` (months ≈ 30d), `y` (≈ 365d). Decimals allowed.
+ * @param {string} s - Duration token, e.g. "5d", "1.5w", "30m", "1M".
  * @returns {number} Duration in milliseconds, or 0 if unrecognized.
  */
 function parseDuration(s) {
-  const m = s.match(/^(\d+)(d|w|h)$/i);
+  const m = s.match(/^(\d+(?:\.\d+)?)(ms|s|m|h|d|w|M|y)$/);
   if (!m) return 0;
-  const n = +m[1];
-  switch (m[2].toLowerCase()) {
-    case 'd': return n * 86400000;
-    case 'w': return n * 7 * 86400000;
-    case 'h': return n * 3600000;
-    default:  return 0;
+  const n = parseFloat(m[1]);
+  switch (m[2]) {
+    case 'ms': return n;
+    case 's':  return n * 1000;
+    case 'm':  return n * 60000;
+    case 'h':  return n * 3600000;
+    case 'd':  return n * DAY;
+    case 'w':  return n * 7 * DAY;
+    case 'M':  return n * 30 * DAY;
+    case 'y':  return n * 365 * DAY;
+    default:   return 0;
   }
 }
 
@@ -37,155 +52,119 @@ const STATUSES = new Set(['done', 'active', 'crit', 'milestone']);
  * Parse Mermaid gantt text into a GanttAST.
  *
  * Two passes: first collects raw tasks (grouped into sections) with unresolved
- * start/end specs, then resolves each task's absolute start/end timestamps,
- * following `after <id>` dependencies and chaining to the previous task's end
- * when a task omits an explicit start.
- *
- * Task spec grammar (comma-separated, all parts optional except a date/duration):
- *   `[status,] [id,] <dateSpec>`
- * where dateSpec is one of: `<ISO date>[, <ISO date | duration>]`,
- * `after <id>[, <duration>]`, or a bare `<duration>`.
+ * start/end specs, then resolves each task's absolute start/end, following
+ * `after <id...>` / `until <id>` dependencies and chaining to the previous
+ * task's end when a task omits an explicit start.
  *
  * @param {string} text - Raw Mermaid gantt source.
  * @returns {{
  *   type: 'gantt',
  *   title: string,
- *   sections: Array<{name: string, tasks: Array<{id: string, label: string, start: number, end: number, status: (string|null)}>}>,
+ *   sections: Array<{name: string, tasks: Array<{id: string, label: string, start: number, end: number, status: (string|null), milestone: boolean, done: boolean, active: boolean, crit: boolean}>}>,
+ *   markers: Array<{date: number, label: string}>,
  *   minDate: number,
  *   maxDate: number
- * }} GanttAST. `start`/`end` are UTC epoch ms; `minDate`/`maxDate` bound the
- *   whole chart for axis scaling; `status` is one of {@link STATUSES} or null.
+ * }} GanttAST. `start`/`end` are UTC epoch ms; `markers` are `vert` lines.
  */
 export function parseGantt(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('%%'));
 
-  let title   = '';
+  let title = '';
   const sections = [];
+  const rawTasks = [];
+  const rawMarkers = [];
   let current = null;
   let taskCounter = 0;
 
-  // Raw tasks with unresolved deps
-  const rawTasks = [];
-
   for (const line of lines) {
-    if (/^gantt$/i.test(line))        continue;
-    if (/^dateFormat\s/i.test(line))  continue;
-    if (/^axisFormat\s/i.test(line))  continue;
-    if (/^excludes\s/i.test(line))    continue;
-    if (/^tickInterval\s/i.test(line)) continue;
+    if (/^gantt\b/i.test(line)) continue;
+    if (/^title\s/i.test(line)) { title = line.replace(/^title\s+/i, '').trim(); continue; }
+    if (/^section\s/i.test(line)) { current = { name: line.replace(/^section\s+/i, '').trim(), tasks: [] }; sections.push(current); continue; }
 
-    if (/^title\s/i.test(line)) {
-      title = line.replace(/^title\s+/i, '').trim();
+    // Vertical marker: `vert <date>` (optionally `vert <label> : <date>`).
+    const vertM = line.match(/^vert\s+(.+)$/i);
+    if (vertM) {
+      const spec = vertM[1];
+      const ci = spec.indexOf(':');
+      const dateTok = (ci >= 0 ? spec.slice(ci + 1) : spec).trim();
+      rawMarkers.push({ token: dateTok, label: ci >= 0 ? spec.slice(0, ci).trim() : '' });
       continue;
     }
 
-    if (/^section\s/i.test(line)) {
-      current = { name: line.replace(/^section\s+/i, '').trim(), tasks: [] };
-      sections.push(current);
-      continue;
-    }
+    // Configuration / interaction directives — recognized but not scheduled.
+    if (/^(dateFormat|axisFormat|excludes|includes|tickInterval|todayMarker|weekday|click)\b/i.test(line)) continue;
 
     if (!line.includes(':')) continue;
-
-    // Ensure we have a section
-    if (!current) {
-      current = { name: '', tasks: [] };
-      sections.push(current);
-    }
+    if (!current) { current = { name: '', tasks: [] }; sections.push(current); }
 
     const colonIdx = line.indexOf(':');
-    const label    = line.slice(0, colonIdx).trim();
-    const spec     = line.slice(colonIdx + 1).trim();
-    const parts    = spec.split(',').map(p => p.trim());
+    const label = line.slice(0, colonIdx).trim();
+    const parts = line.slice(colonIdx + 1).trim().split(',').map(p => p.trim()).filter(Boolean);
 
-    let status  = null;
-    let taskId  = `t${++taskCounter}`;
-    let rawStart = null; // ms | { after: id } | null
-    let rawEnd   = null; // ms | durationMs | null
-
+    const statuses = [];
     let i = 0;
+    while (parts[i] && STATUSES.has(parts[i].toLowerCase())) { statuses.push(parts[i].toLowerCase()); i++; }
 
-    // Optional status
-    if (parts[i] && STATUSES.has(parts[i].toLowerCase())) {
-      status = parts[i].toLowerCase();
-      i++;
+    // Optional id: a token that isn't a date, duration, or after/until clause.
+    let taskId = `__t${++taskCounter}`;
+    if (parts[i] && parseDate(parts[i]) === null && parseDuration(parts[i]) === 0 && !/^(after|until)\b/i.test(parts[i])) {
+      taskId = parts[i]; i++;
     }
 
-    // Optional id: a word that is not an ISO date, a duration, or an 'after ...' clause.
-    if (parts[i] && !/^\d{4}-/.test(parts[i]) && !/^\d+(d|w|h)$/i.test(parts[i]) && !/^after\s/i.test(parts[i])) {
-      taskId = parts[i];
-      i++;
+    // Start spec: `after id...`, an explicit date, or none (chain to previous).
+    let rawStart = null;
+    if (parts[i] && /^after\s+/i.test(parts[i])) { rawStart = { after: parts[i].split(/\s+/).slice(1) }; i++; }
+    else if (parts[i] && parseDate(parts[i]) !== null) { rawStart = parseDate(parts[i]); i++; }
+
+    // End spec: `until id`, a date, or a duration.
+    let rawEnd = null;
+    if (parts[i] && /^until\s+/i.test(parts[i])) { rawEnd = { until: parts[i].split(/\s+/)[1] }; i++; }
+    else if (parts[i]) {
+      const d = parseDate(parts[i]);
+      rawEnd = d !== null ? d : (parseDuration(parts[i]) || null);
     }
 
-    // dateSpec
-    if (parts[i]) {
-      if (/^after\s+\S+$/i.test(parts[i])) {
-        rawStart = { after: parts[i].split(/\s+/)[1] };
-        i++;
-        if (parts[i]) rawEnd = parseDuration(parts[i]) || null;
-      } else {
-        const maybeDate = parseIsoDate(parts[i]);
-        if (maybeDate !== null) {
-          rawStart = maybeDate;
-          i++;
-          if (parts[i]) {
-            const asDate = parseIsoDate(parts[i]);
-            if (asDate !== null) rawEnd = asDate;
-            else rawEnd = parseDuration(parts[i]) || null;
-          }
-        } else {
-          // duration only
-          rawEnd = parseDuration(parts[i]) || null;
-        }
-      }
-    }
-
-    const raw = { label, id: taskId, status, rawStart, rawEnd, sectionIdx: sections.length - 1 };
+    const raw = {
+      label, id: taskId, statuses,
+      milestone: statuses.includes('milestone'),
+      rawStart, rawEnd,
+    };
     current.tasks.push(raw);
     rawTasks.push(raw);
   }
 
-  // Default section if none defined
-  if (!sections.length) return { type: 'gantt', title, sections: [], minDate: Date.now(), maxDate: Date.now() };
+  if (!sections.length) return { type: 'gantt', title, sections: [], markers: [], minDate: Date.now(), maxDate: Date.now() };
 
-  // Second pass: resolve dates
-  const idMap    = new Map(rawTasks.map(t => [t.id, t]));
-  const resolved = new Map(); // id → { start, end } memoized resolution
-  let   prevEnd  = null;       // end of the most recently resolved task (for chaining)
+  // Resolve dates. Base for un-dated first tasks = earliest explicit date, else today.
+  const idMap = new Map(rawTasks.map(t => [t.id, t]));
+  const explicitDates = rawTasks.map(t => typeof t.rawStart === 'number' ? t.rawStart : null).filter(x => x != null);
+  const base = explicitDates.length ? Math.min(...explicitDates) : Date.now();
+  const resolved = new Map();
+  let prevEnd = null;
 
   /**
    * Resolve one raw task to absolute `{ start, end }` ms, recursively resolving
-   * any `after <id>` dependency first. Results are memoized in `resolved`.
-   * @param {{id: string, rawStart: (number|{after: string}|null), rawEnd: (number|null)}} t - Raw task.
+   * `after`/`until` dependencies first. Memoized.
+   * @param {object} t - Raw task.
    * @returns {{start: number, end: number}} Resolved UTC epoch-ms bounds.
    */
   function resolve(t) {
     if (resolved.has(t.id)) return resolved.get(t.id);
+    resolved.set(t.id, { start: base, end: base }); // cycle guard
 
-    let start = null;
-    if (t.rawStart === null) {
-      start = prevEnd ?? 0;
-    } else if (typeof t.rawStart === 'number') {
-      start = t.rawStart;
-    } else if (t.rawStart.after) {
-      const dep = idMap.get(t.rawStart.after);
-      if (dep) {
-        const depRes = resolve(dep);
-        start = depRes.end;
-      } else {
-        start = prevEnd ?? 0;
-      }
+    let start;
+    if (t.rawStart === null) start = prevEnd ?? base;
+    else if (typeof t.rawStart === 'number') start = t.rawStart;
+    else { // after one or more ids → the latest dependency end (not the prev task)
+      let s = -Infinity;
+      for (const id of t.rawStart.after) { const dep = idMap.get(id); if (dep) s = Math.max(s, resolve(dep).end); }
+      start = s === -Infinity ? (prevEnd ?? base) : s;
     }
 
     let end;
-    if (t.rawEnd === null) {
-      end = start + 7 * 86400000; // default 7d
-    } else if (typeof t.rawEnd === 'number') {
-      // Could be absolute date (large) or duration (smaller)
-      end = t.rawEnd > 1e12 ? t.rawEnd : start + t.rawEnd;
-    } else {
-      end = start + 7 * 86400000;
-    }
+    if (t.rawEnd === null) end = start + (t.milestone ? DAY : 7 * DAY);
+    else if (typeof t.rawEnd === 'number') end = t.rawEnd > 1e12 ? t.rawEnd : start + t.rawEnd;
+    else { const dep = idMap.get(t.rawEnd.until); end = dep ? resolve(dep).start : start + DAY; }
 
     const res = { start, end };
     resolved.set(t.id, res);
@@ -193,18 +172,30 @@ export function parseGantt(text) {
     return res;
   }
 
-  // Rebuild sections with resolved tasks
   const finalSections = sections.map(sec => ({
     name: sec.name,
     tasks: sec.tasks.map(t => {
       const r = resolve(t);
-      return { id: t.id, label: t.label, start: r.start, end: r.end, status: t.status };
+      const status = t.statuses.includes('crit') ? 'crit' : t.statuses.includes('active') ? 'active' : t.statuses.includes('done') ? 'done' : null;
+      return {
+        id: t.id, label: t.label, start: r.start, end: r.end, status,
+        milestone: t.milestone,
+        done: t.statuses.includes('done'), active: t.statuses.includes('active'), crit: t.statuses.includes('crit'),
+      };
     }),
   }));
 
-  const allTasks = finalSections.flatMap(s => s.tasks);
-  const minDate  = allTasks.reduce((m, t) => Math.min(m, t.start), Infinity);
-  const maxDate  = allTasks.reduce((m, t) => Math.max(m, t.end),   -Infinity);
+  // Resolve vert markers (a date, or a task id whose start is used).
+  const markers = rawMarkers.map(m => {
+    const d = parseDate(m.token);
+    if (d !== null) return { date: d, label: m.label };
+    const dep = idMap.get(m.token);
+    return dep ? { date: resolve(dep).start, label: m.label || m.token } : null;
+  }).filter(Boolean);
 
-  return { type: 'gantt', title, sections: finalSections, minDate, maxDate };
+  const allTasks = finalSections.flatMap(s => s.tasks);
+  const minDate = Math.min(...allTasks.map(t => t.start), ...markers.map(m => m.date));
+  const maxDate = Math.max(...allTasks.map(t => t.end),   ...markers.map(m => m.date));
+
+  return { type: 'gantt', title, sections: finalSections, markers, minDate, maxDate };
 }

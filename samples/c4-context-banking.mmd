@@ -1,0 +1,22 @@
+C4Context
+    title System Context — Internet Banking
+
+    Person(customer, "Banking Customer", "A personal customer of the bank")
+    Person_Ext(support, "Support Staff", "Handles customer tickets")
+
+    Enterprise_Boundary(bank, "Big Bank plc") {
+        System(banking, "Internet Banking", "View accounts and make payments")
+        System(mainframe, "Mainframe Banking", "Stores core banking information")
+        System(email, "E-mail System", "Sends notifications")
+    }
+
+    System_Ext(atm, "ATM", "Withdraw cash")
+    SystemQueue_Ext(payments, "Payment Gateway", "Third-party payments")
+
+    Rel(customer, banking, "Views accounts, makes payments")
+    Rel(support, banking, "Resolves tickets in")
+    Rel(banking, mainframe, "Reads from and writes to", "XML/HTTPS")
+    Rel(banking, email, "Sends e-mail using", "SMTP")
+    Rel(banking, payments, "Makes payments using", "HTTPS")
+    Rel_Back(email, customer, "Sends e-mails to")
+    Rel(customer, atm, "Withdraws cash using")
