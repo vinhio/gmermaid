@@ -40,7 +40,7 @@ class GDiagramElement extends HTMLElement {
    * @returns {string[]} The observed attribute names.
    */
   static get observedAttributes() {
-    return ['src', 'theme', 'height', 'curved', 'keyboard'];
+    return ['src', 'theme', 'height', 'curved', 'keyboard', 'locked', 'lock-button'];
   }
 
   constructor() {
@@ -74,6 +74,8 @@ class GDiagramElement extends HTMLElement {
       case 'theme':    this.#diagram.setTheme(newVal ?? 'dark'); break;
       case 'height':   this.style.height = newVal ?? '400px'; break;
       case 'curved':   this.#diagram.setCurved(newVal !== 'false'); break;
+      case 'locked':   this.#diagram.setLocked(newVal !== null && newVal !== 'false'); break;
+      case 'lock-button': this.#diagram.showLockButton(newVal !== null && newVal !== 'false'); break;
     }
   }
 
@@ -131,11 +133,15 @@ class GDiagramElement extends HTMLElement {
     const theme    = this.getAttribute('theme')    ?? 'dark';
     const curved   = this.getAttribute('curved')   !== 'false';
     const keyboard = this.getAttribute('keyboard') !== 'false';
+    const locked     = this.hasAttribute('locked') && this.getAttribute('locked') !== 'false';
+    const lockButton = this.hasAttribute('lock-button') && this.getAttribute('lock-button') !== 'false';
 
     this.#diagram = GMermaid.create(this.#container, {
       theme,
       curved,
       keyboard,
+      locked,
+      lockButton,
     });
 
     const src = this.getAttribute('src');

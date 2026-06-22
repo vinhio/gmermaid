@@ -57,6 +57,36 @@
 }
 .gm-stage.gm-panning { cursor: grabbing; }
 
+/* Locked viewer — interaction disabled, so show the default cursor everywhere. */
+.gm-container.gm-locked,
+.gm-container.gm-locked * { cursor: default; }
+
+/* On-diagram lock/unlock toggle button (corner overlay). */
+.gm-lock-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--gm-panel);
+  color: var(--gm-muted);
+  border: 1px solid var(--gm-panel-border);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity .12s, color .12s, border-color .12s;
+}
+.gm-container:hover .gm-lock-toggle { opacity: 1; }
+.gm-lock-toggle:hover { color: var(--gm-text); border-color: var(--gm-accent); }
+.gm-lock-toggle.is-locked { color: var(--gm-accent); border-color: var(--gm-accent); opacity: 1; }
+/* Keep the toggle clickable (pointer cursor) even while the viewer is locked. */
+.gm-container.gm-locked .gm-lock-toggle { cursor: pointer; }
+
 /* ── Flowchart nodes ── */
 .gm-node          { cursor: move; }
 .gm-node-shape    { transition: stroke .12s, fill .12s; }

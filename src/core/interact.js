@@ -18,6 +18,7 @@ export class Interact {
   #panStart = null;                // pointer-vs-view offset captured at pan start
   #bus;                            // EventBus for view/node/label events
   #snapGrid = 0;                   // grid pitch for drag snapping (0 = off)
+  #locked   = false;               // when true, all viewer interaction is disabled
 
   /**
    * @param {SVGSVGElement} stage - Outer SVG that receives pointer/wheel events.
@@ -35,6 +36,11 @@ export class Interact {
   set snapGrid(v) { this.#snapGrid = Number(v) || 0; }
   /** @returns {number} Current snap grid pitch (0 = disabled). */
   get snapGrid()  { return this.#snapGrid; }
+
+  /** @param {boolean} v - When true, pan/zoom/drag/label-edit are all disabled (wheel/pointer events pass through to the page). */
+  set locked(v) { this.#locked = !!v; }
+  /** @returns {boolean} Whether viewer interaction is currently locked. */
+  get locked()  { return this.#locked; }
 
   /**
    * Snap a coordinate to the nearest grid line when snapping is enabled.
@@ -165,11 +171,14 @@ export class Interact {
    */
   #attachStage() {
     this.#stage.addEventListener('wheel', e => {
+      // When locked, don't capture the wheel — let the page scroll normally.
+      if (this.#locked) return;
       e.preventDefault();
       this.zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 1 / 1.12);
     }, { passive: false });
 
     this.#stage.addEventListener('pointerdown', e => {
+      if (this.#locked) return;                          // no pan when locked
       if (e.target.closest('[data-draggable]')) return; // let node drag handle it
       this.#panning  = true;
       this.#stage.classList.add('gm-panning');
@@ -207,6 +216,7 @@ export class Interact {
     element.setAttribute('data-draggable', '1');
 
     element.addEventListener('pointerdown', e => {
+      if (this.#locked) return;  // no node dragging when locked
       if (e.detail >= 2) return; // allow dblclick to pass through
       e.stopPropagation();
       element.classList.add('gm-dragging');
@@ -258,6 +268,7 @@ export class Interact {
    */
   attachLabelEdit(element, nodeState) {
     element.addEventListener('dblclick', e => {
+      if (this.#locked) return; // no inline label editing when locked
       e.stopPropagation();
       e.preventDefault();
 

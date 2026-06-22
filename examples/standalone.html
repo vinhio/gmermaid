@@ -221,6 +221,7 @@
       <button class="btn" id="btnPng">↧ PNG</button>
       <button class="btn" id="btnSave">⬆ Save</button>
       <button class="btn" id="btnLoad">⬇ Load</button>
+      <button class="btn" id="btnLock">🔒 Lock</button>
     </div>
   </div>
 
@@ -577,9 +578,11 @@ const editor  = document.getElementById('editor');
 const status  = document.getElementById('status');
 const btnUndo = document.getElementById('btnUndo');
 const btnRedo = document.getElementById('btnRedo');
+const btnLock = document.getElementById('btnLock');
 let diagram   = null;
 let curved    = true;
 let snap      = false;
+let locked    = false;
 
 function render(source) {
   if (diagram) diagram.destroy();
@@ -590,6 +593,8 @@ function render(source) {
       curved,
       theme: 'dark',
       snapGrid: snap ? 16 : 0,
+      locked,            // preserve lock state across re-renders
+      lockButton: true,  // show the on-diagram lock/unlock toggle
     });
     diagram.on('nodeMove', ({ id, x, y }) => {
       status.textContent = `Moved: ${id} → (${Math.round(x)}, ${Math.round(y)})`;
@@ -600,6 +605,12 @@ function render(source) {
     diagram.on('historyChange', ({ canUndo, canRedo }) => {
       btnUndo.disabled = !canUndo;
       btnRedo.disabled = !canRedo;
+    });
+    // Keep the toolbar Lock button in sync with the on-diagram toggle.
+    diagram.on('lockChange', isLocked => {
+      locked = isLocked;
+      btnLock.classList.toggle('active', isLocked);
+      btnLock.textContent = isLocked ? '🔓 Unlock' : '🔒 Lock';
     });
     status.textContent = `Rendered ✓  [${GMermaid.detectType(source)}]  · dbl-click to edit label`;
   } catch (err) {
@@ -624,6 +635,14 @@ document.getElementById('btnZoomOut').onclick= () => diagram?.zoomOut();
 
 document.getElementById('btnUndo').onclick = () => { diagram?.undo(); };
 document.getElementById('btnRedo').onclick = () => { diagram?.redo(); };
+
+document.getElementById('btnLock').onclick = () => {
+  if (!diagram) return;
+  diagram.setLocked(!diagram.isLocked());
+  status.textContent = diagram.isLocked()
+    ? 'Locked · pan/zoom/drag disabled (wheel scrolls the page)'
+    : 'Unlocked · pan/zoom/drag enabled';
+};
 
 document.getElementById('btnCurved').onclick = function() {
   curved = !curved;

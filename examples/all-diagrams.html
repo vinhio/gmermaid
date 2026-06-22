@@ -445,6 +445,8 @@ for (const def of DIAGRAMS) {
       source: def.source,
       theme: 'dark',
       keyboard: false,
+      locked: true,        // gallery: keep diagrams static so the page scrolls freely
+      lockButton: true,    // click the corner toggle to explore an individual diagram
       ariaLabel: def.name,
     });
     instances.push({ d, cont, def });

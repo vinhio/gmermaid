@@ -59,6 +59,10 @@ import { renderKanban }      from './diagrams/kanban/renderer.js';
 import { parsePacket }       from './diagrams/packet/parser.js';
 import { renderPacket }      from './diagrams/packet/renderer.js';
 
+/** Inline SVG padlock glyphs for the lock-toggle button (closed = locked). */
+const LOCK_ICON_CLOSED = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="11" width="15" height="9.5" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+const LOCK_ICON_OPEN   = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="11" width="15" height="9.5" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>';
+
 /**
  * Detect a diagram's type by matching a keyword on its first non-empty line.
  * @param {string} text - Raw Mermaid-style source text.
@@ -165,6 +169,8 @@ class Diagram {
   #firstRender = true;   // gates the one-time auto fit-to-content
   #keyHandler;           // bound window keydown listener for shortcuts
   #virtualRenderer = null; // active VirtualRenderer for large diagrams, else null
+  #locked     = false;   // when true, the viewer ignores all user interaction
+  #lockBtn    = null;    // optional on-diagram lock/unlock toggle button
 
   static #VIRTUAL_THRESHOLD = 100; // nodes above this trigger virtual rendering
 
@@ -186,6 +192,8 @@ class Diagram {
     if (options.layout)  this.#layout = { ...options.layout };
     if (options.curved !== undefined) this.#curved = options.curved;
     if (options.snapGrid) this.#interact.snapGrid = options.snapGrid;
+    if (options.locked) this.setLocked(true);
+    if (options.lockButton) this.#createLockButton();
 
     // Node moved → track in history, also update #layout so re-renders preserve position
     this.#bus.on('nodeMove', ({ id, x, y, from, nodeState }) => {
@@ -215,6 +223,7 @@ class Diagram {
 
     // Global keyboard shortcuts — only when no text input is focused; skip when keyboard:false
     this.#keyHandler = e => {
+      if (this.#locked) return; // no keyboard pan/zoom/undo when locked
       const tag = document.activeElement?.tagName?.toLowerCase();
       if (['input', 'textarea', 'select'].includes(tag)) return;
       const mod  = e.ctrlKey || e.metaKey;
@@ -444,6 +453,74 @@ class Diagram {
   setSnapGrid(grid)      { this.#interact.snapGrid = grid; }
 
   /**
+   * Lock or unlock the viewer. When locked, all user interaction (pan, zoom,
+   * node drag, inline label edit, keyboard shortcuts) is disabled and wheel
+   * events pass through to the page, so the diagram never interferes with the
+   * host app. Programmatic API (load, setTheme, fitToContent, …) still works.
+   * @param {boolean} locked - True to lock, false to unlock.
+   * @returns {void}
+   */
+  setLocked(locked) {
+    this.#locked = !!locked;
+    this.#interact.locked = this.#locked;
+    this.#container.classList.toggle('gm-locked', this.#locked);
+    // Reset the grab/move cursor while locked; restore the themed cursor otherwise.
+    this.#renderer.stage.style.cursor = this.#locked ? 'default' : '';
+    this.#updateLockButton();
+    this.#bus.emit('lockChange', this.#locked);
+  }
+
+  /** Lock the viewer (shorthand for `setLocked(true)`). @returns {void} */
+  lock()   { this.setLocked(true); }
+  /** Unlock the viewer (shorthand for `setLocked(false)`). @returns {void} */
+  unlock() { this.setLocked(false); }
+  /** @returns {boolean} Whether the viewer is currently locked. */
+  isLocked() { return this.#locked; }
+
+  /**
+   * Show or hide the on-diagram lock/unlock toggle button (a corner overlay the
+   * end-user can click). Idempotent.
+   * @param {boolean} show - True to show the button, false to remove it.
+   * @returns {void}
+   */
+  showLockButton(show = true) {
+    if (show && !this.#lockBtn) this.#createLockButton();
+    else if (!show && this.#lockBtn) { this.#lockBtn.remove(); this.#lockBtn = null; }
+  }
+
+  /**
+   * Create the overlay lock/unlock toggle button and wire its click to toggle
+   * the lock. The button stays clickable even while the viewer is locked.
+   * @returns {void}
+   */
+  #createLockButton() {
+    if (this.#lockBtn) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gm-lock-toggle';
+    btn.addEventListener('pointerdown', e => e.stopPropagation()); // don't start a pan
+    btn.addEventListener('click', e => { e.stopPropagation(); this.setLocked(!this.#locked); });
+    this.#container.appendChild(btn);
+    this.#lockBtn = btn;
+    this.#updateLockButton();
+  }
+
+  /**
+   * Sync the lock button's icon, tooltip and state class with the current lock.
+   * @returns {void}
+   */
+  #updateLockButton() {
+    const btn = this.#lockBtn;
+    if (!btn) return;
+    btn.innerHTML = this.#locked ? LOCK_ICON_CLOSED : LOCK_ICON_OPEN;
+    btn.classList.toggle('is-locked', this.#locked);
+    const label = this.#locked ? 'Unlock diagram (enable pan/zoom)' : 'Lock diagram (disable pan/zoom)';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+    btn.setAttribute('aria-pressed', String(this.#locked));
+  }
+
+  /**
    * Zoom and centre the view so the whole diagram is visible.
    * @returns {void}
    */
@@ -544,6 +621,7 @@ class Diagram {
    */
   destroy() {
     if (this.#options.keyboard !== false) window.removeEventListener('keydown', this.#keyHandler);
+    this.#lockBtn?.remove();
     this.#resizeObserver.disconnect();
     this.#virtualRenderer?.destroy();
     this.#theme.destroy();

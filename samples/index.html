@@ -201,7 +201,7 @@ async function load(sample) {
     const src = await res.text();
     if (diagram) diagram.destroy();
     document.getElementById('diagram').innerHTML = '';
-    diagram = GMermaid.create(document.getElementById('diagram'), { source: src, theme: 'dark' });
+    diagram = GMermaid.create(document.getElementById('diagram'), { source: src, theme: 'dark', lockButton: true });
     titleEl.textContent = sample.file;
     statusEl.textContent = `${sample.title} · drag to pan · scroll to zoom`;
   } catch (err) {

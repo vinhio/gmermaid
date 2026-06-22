@@ -291,6 +291,7 @@ let d1 = GMermaid.create(document.getElementById('diagram1'), {
   layout:   blockData1.layout,
   theme:    currentTheme,
   keyboard: false,
+  lockButton: true,   // embedded in an editor — let the user lock pan/zoom on demand
 });
 d1.on('nodeMove', ({ id, x, y }) => { blockData1.layout[id] = { x, y }; updateStateView(); });
 d1.on('labelEdit', () => updateStateView());
@@ -300,6 +301,7 @@ let d2 = GMermaid.create(document.getElementById('diagram2'), {
   layout:   blockData2.layout,
   theme:    currentTheme,
   keyboard: false,
+  lockButton: true,   // embedded in an editor — let the user lock pan/zoom on demand
 });
 
 // ── Source editors ────────────────────────────────────────────────────

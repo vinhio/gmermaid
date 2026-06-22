@@ -67,7 +67,7 @@ A diagram needs two things: the **JS module** and a **base stylesheet** (the str
 <g-diagram src="./diagram.mmd" theme="light" height="300px"></g-diagram>
 ```
 
-Attributes: `src`, `theme` (`dark`/`light`/`github`), `height`, `curved` (`false` for straight edges), `keyboard` (`false` to disable global shortcuts).
+Attributes: `src`, `theme` (`dark`/`light`/`github`), `height`, `curved` (`false` for straight edges), `keyboard` (`false` to disable global shortcuts), `locked` (present = no pan/zoom/drag/edit), `lock-button` (present = show the on-diagram lock toggle).
 
 ---
 
@@ -83,6 +83,8 @@ const d = GMermaid.create(container, {
   curved:   true,      // bezier vs orthogonal edges
   snapGrid: 16,        // snap dragged nodes to a grid (0 = off)
   keyboard: true,      // global keyboard shortcuts
+  locked:   false,     // start locked (no pan/zoom/drag/edit; wheel passes through)
+  lockButton: false,   // show an on-diagram lock/unlock toggle button
   ariaLabel: 'My diagram',
 });
 
@@ -113,6 +115,30 @@ d.undo(); d.redo();
 const svg = d.exportSVG({ inline: true });        // → SVG string (CSS inlined)
 const png = await d.exportPNG({ scale: 2 });      // → PNG data-URL
 ```
+
+### Lock / unlock interaction
+
+By default the viewer captures wheel (zoom), pointer drag (pan/move) and double-click (edit). When the diagram is embedded in a larger app, **lock** it so it stays a static picture and never steals the page's scroll or clicks — the wheel passes straight through to the page:
+
+```js
+d.lock();              // disable all pan/zoom/drag/edit (wheel scrolls the page)
+d.unlock();            // re-enable interaction
+d.setLocked(true);     // or set explicitly
+d.isLocked();          // → boolean
+d.on('lockChange', locked => { /* … */ });
+```
+
+Programmatic calls (`load`, `setTheme`, `fitToContent`, `exportSVG`, …) keep working while locked. Start locked with `GMermaid.create(el, { locked: true })`, or on the web component with the `locked` attribute (`<g-diagram locked>…</g-diagram>`).
+
+**On-diagram toggle.** For an end-user-facing control, show a small lock/unlock button in the corner of the diagram:
+
+```js
+GMermaid.create(el, { lockButton: true });   // show the toggle from the start
+d.showLockButton(true);                        // or add/remove it later
+d.showLockButton(false);
+```
+
+Clicking it flips the lock (the icon reflects the state) and stays clickable even while locked. On the web component use the `lock-button` attribute: `<g-diagram lock-button>…</g-diagram>`. The button is an HTML overlay, so it's never included in `exportSVG()`/`exportPNG()`.
 
 ### Events
 
