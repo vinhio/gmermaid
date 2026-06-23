@@ -234,6 +234,28 @@ Mermaid text → detectType() → parse() → AST → layout → render → inte
 - `src/diagrams/<type>/` — each type has a `parser.js` (text → AST) and a `renderer.js` (AST → SVG). Parsers never touch the DOM; renderers never re-parse.
 - `src/plugins/` — `web-component.js` (`<g-diagram>`), `jivedoc.js`
 
+### Why an AST?
+
+An **AST (Abstract Syntax Tree)** is the structured, in-memory representation of a diagram that sits between the raw Mermaid text and the rendered SVG. The parser reads the text once and produces a plain JavaScript object — for example, a flowchart becomes:
+
+```js
+{
+  type: 'flowchart',
+  nodes: [ { id: 'A', label: 'Start', shape: 'square' }, { id: 'B', label: 'End', shape: 'square' } ],
+  edges: [ { from: 'A', to: 'B', arrow: 'arrow' } ]
+}
+```
+
+Everything downstream operates on this object rather than on the text. The AST is the backbone of the architecture for several concrete reasons:
+
+- **Separation of concerns.** Parsing (text → AST) and rendering (AST → SVG) are fully decoupled: parsers never touch the DOM, and renderers never re-parse. Each side can change independently, which keeps every diagram type a small, self-contained pair of files.
+- **One source of truth, many outputs.** The same AST drives auto-layout, SVG rendering, PNG export, and hit-testing. Adding a new output means reading the AST, not re-reading the source text.
+- **Structure over string-slicing.** Walking arrays like `nodes` and `edges` (or nested children for namespaces, subgraphs, and composite blocks) is far simpler and less error-prone than repeatedly scanning raw characters. The "tree" shape directly models nesting.
+- **Interactivity and persistence.** Node drags update positions on the AST/layout, undo/redo records changes against it, and `getState()` serializes `{ source, layout }` — all without rewriting the original text.
+- **Easy to extend.** A new diagram type only needs to emit an AST in the expected shape; the orchestrator in `src/index.js` wires it into the shared pipeline (`detectType → parse → AST → layout → render`).
+
+In short, the AST turns free-form text into a predictable data structure, so the rest of the system can stay simple, testable, and reusable.
+
 ---
 
 ## Extending
